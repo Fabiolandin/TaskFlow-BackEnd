@@ -5,3 +5,92 @@ generator client {
 datasource db {
   provider = "sqlite"
 }
+
+model Usuarios {
+  id                  Int                  @id @default(autoincrement())
+  nome                String
+  email               String               @unique
+  senha               String
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  usuariosProjetos    UsuariosProjetos[]
+  tarefasCriadas      Tarefas[]            @relation("TarefaCriador")
+  tarefasResponsaveis Tarefas[]            @relation("TarefaResponsavel")
+  comentariosTarefas  ComentariosTarefas[]
+}
+
+model Projetos {
+  id               Int                @id @default(autoincrement())
+  nome             String
+  descricao        String?
+  status           Int
+  data_inicio      DateTime?
+  data_final       DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  usuariosProjetos UsuariosProjetos[]
+  tarefas          Tarefas[]
+}
+
+model UsuariosProjetos {
+  id        Int      @id @default(autoincrement())
+  idUsuario Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  usuario   Usuarios @relation(fields: [idUsuario], references: [id])
+  idProjeto Int
+  projeto   Projetos @relation(fields: [idProjeto], references: [id])
+
+  @@unique([idUsuario, idProjeto])
+}
+
+model Tarefas {
+  id                   Int                  @id @default(autoincrement())
+  nome                 String
+  descricao            String?
+  status               Int
+  prioridade           String
+  data_inicio          DateTime?
+  data_final           DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  idUsuarioResponsavel Int?
+  usuarioResponsavel   Usuarios?            @relation("TarefaResponsavel", fields: [idUsuarioResponsavel], references: [id])
+  idUsuarioCriador     Int
+  usuarioCriador       Usuarios             @relation("TarefaCriador", fields: [idUsuarioCriador], references: [id])
+  idProjeto            Int
+  projeto              Projetos             @relation(fields: [idProjeto], references: [id])
+  labelsTarefas        LabelsTarefas[]
+  comentariosTarefas   ComentariosTarefas[]
+}
+
+model ComentariosTarefas {
+  id         Int      @id @default(autoincrement())
+  comentario String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  idTarefa   Int
+  tarefa     Tarefas  @relation(fields: [idTarefa], references: [id])
+  idUsuario  Int
+  usuario    Usuarios @relation(fields: [idUsuario], references: [id])
+}
+
+model Labels {
+  id            Int             @id @default(autoincrement())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  nome          String
+  labelsTarefas LabelsTarefas[]
+}
+
+model LabelsTarefas {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  idLabel   Int
+  label     Labels   @relation(fields: [idLabel], references: [id])
+  idTarefa  Int
+  tarefa    Tarefas  @relation(fields: [idTarefa], references: [id])
+
+  @@unique([idLabel, idTarefa])
+}
