@@ -14,7 +14,7 @@ export class UsuariosController {
   @ApiOperation({ summary: 'Criar um novo usiario' })
   create(
     @Body() createUsuarioDto: CreateUsuarioDto
-  ): Promise<Usuarios> {
+  ): Promise<Omit<Usuarios, 'senha'>> {
     return this.usuariosService.create(createUsuarioDto);
   }
 
