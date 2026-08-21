@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateComentariostarefaDto } from './dto/create-comentariostarefa.dto';
 import { UpdateComentariostarefaDto } from './dto/update-comentariostarefa.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -18,10 +18,16 @@ export class ComentariostarefasService {
     return this.prisma.comentariosTarefas.findMany();
   }
 
-  findOne(id: number) {
-    return this.prisma.comentariosTarefas.findUnique({
+  async findOne(id: number) {
+    const comentario = await this.prisma.comentariosTarefas.findUnique({
       where: { id }
     });
+
+    if (!comentario) {
+      throw new NotFoundException(`Comentário ${id} não encontrado`)
+    }
+
+    return comentario;
   }
 
   findByTarefa(idTarefa: number) {
