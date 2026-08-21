@@ -4,9 +4,10 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { ProjetosModule } from './projetos/projetos.module';
 import { TarefasModule } from './tarefas/tarefas.module';
 import { LabelsModule } from './labels/labels.module';
+import { ComentariostarefasModule } from './comentariostarefas/comentariostarefas.module';
 
 @Module({
-  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule],
+  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule, ComentariostarefasModule],
   controllers: [],
   providers: [],
 })
