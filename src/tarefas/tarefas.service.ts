@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -27,8 +27,8 @@ export class TarefasService {
     return this.prisma.tarefas.findMany();
   }
 
-  findOne(id: number) {
-    return this.prisma.tarefas.findUnique({
+  async findOne(id: number) {
+    const tarefa = await this.prisma.tarefas.findUnique({
       where: { id },
       select: {
         id: true,
@@ -44,6 +44,11 @@ export class TarefasService {
         labelsTarefas: { select: { label: { select: { id: true, nome: true } } } }
       }
     })
+    if (!tarefa) {
+      throw new NotFoundException(`Tarefa ${id} não encontrada`)
+    }
+
+    return tarefa;
   }
 
   update(id: number, updateTarefaDto: UpdateTarefaDto) {

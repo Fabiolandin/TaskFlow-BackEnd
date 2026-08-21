@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProjetoDto } from './dto/create-projeto.dto';
 import { UpdateProjetoDto } from './dto/update-projeto.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -18,10 +18,16 @@ export class ProjetosService {
     return this.prisma.projetos.findMany();
   }
 
-  findOne(id: number) {
-    return this.prisma.projetos.findUnique({
+  async findOne(id: number) {
+    const projeto = await this.prisma.projetos.findUnique({
       where: { id }
     });
+
+        if (!projeto) {
+          throw new NotFoundException(`Projeto ${id} não encontrado`)
+        }
+
+    return projeto;
   }
 
   update(id: number, updateProjetoDto: UpdateProjetoDto) {

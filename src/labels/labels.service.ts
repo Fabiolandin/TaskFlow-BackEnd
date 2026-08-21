@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -16,14 +16,20 @@ export class LabelsService {
 
   findAll() {
     return this.prisma.labels.findMany({
-      select: {id: true, nome: true}
+      select: { id: true, nome: true }
     });
   }
 
-  findOne(id: number) {
-    return this.prisma.labels.findUnique({
+  async findOne(id: number) {
+    const label = await this.prisma.labels.findUnique({
       where: { id },
     });
+
+    if (!label) {
+      throw new NotFoundException(`Label ${id} não encontrado`)
+    }
+
+    return label;
   }
 
   update(id: number, updateLabelDto: UpdateLabelDto) {
