@@ -61,8 +61,7 @@ export class UsuariosService {
 
     // Verifica se a senha está presente no objeto de atualização e cria o hash se necessário
     if (data.senha) {
-      const senhaHash = bcrypt.hashSync(data.senha, 10);
-      data.senha = senhaHash;
+      data.senha = bcrypt.hashSync(data.senha, 10);
     }
 
     const usuario = await this.prisma.usuarios.update({

@@ -4,12 +4,14 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Usuarios } from '@prisma/client';
+import { Public } from '../auth/public.decorator';
 
 @ApiTags('Usuarios')
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
+  @Public()
   @Post()
   @ApiOperation({ summary: 'Criar um novo usiario' })
   create(
