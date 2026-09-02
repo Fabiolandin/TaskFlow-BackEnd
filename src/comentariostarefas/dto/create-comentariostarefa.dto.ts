@@ -12,10 +12,4 @@ export class CreateComentariostarefaDto {
     @IsNotEmpty()
     @IsNumber()
     idUsuario: number
-
-    @IsNotEmpty()
-    createdAt: Date
-
-    @IsNotEmpty()
-    updatedAt: Date
 }

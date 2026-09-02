@@ -1,4 +1,5 @@
-import { IsDate, IsNotEmpty, IsNumber, IsString } from "class-validator"
+import { IsDate, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
+import { Type } from "class-transformer"
 
 export class CreateTarefaDto {
 
@@ -6,8 +7,9 @@ export class CreateTarefaDto {
     @IsString()
     nome: string
 
+    @IsOptional()
     @IsString()
-    descricao: string
+    descricao?: string
 
     @IsNotEmpty()
     @IsNumber()
@@ -17,14 +19,19 @@ export class CreateTarefaDto {
     @IsString()
     prioridade: string
 
+    @IsOptional()
+    @Type(() => Date)
     @IsDate()
     data_inicio?: Date
 
+    @IsOptional()
+    @Type(() => Date)
     @IsDate()
     data_final?: Date
 
+    @IsOptional()
     @IsNumber()
-    idUsuarioResponsavel: number
+    idUsuarioResponsavel?: number
 
     @IsNotEmpty()
     @IsNumber()
@@ -33,12 +40,6 @@ export class CreateTarefaDto {
     @IsNotEmpty()
     @IsNumber()
     idProjeto: number
-
-    @IsDate()
-    createdAt: Date
-
-    @IsDate()
-    updatedAt: Date
 
     labelIds?: number[]
 }
