@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { ProjetosService } from './projetos.service';
 import { CreateProjetoDto } from './dto/create-projeto.dto';
 import { UpdateProjetoDto } from './dto/update-projeto.dto';
@@ -20,8 +20,11 @@ export class ProjetosController {
 
   @Get()
   @ApiOperation({ summary: 'Listar todos os projetos' })
-  findAll() {
-    return this.projetosService.findAll();
+  findAll(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '9',
+  ) {
+    return this.projetosService.findAll(+page, +limit);
   }
 
   @Get(':id')

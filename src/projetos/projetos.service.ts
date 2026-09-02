@@ -14,8 +14,18 @@ export class ProjetosService {
     });
   }
 
-  findAll() {
-    return this.prisma.projetos.findMany();
+  async findAll(page: number = 1, limit: number = 9) {
+    const skip = (page - 1) * limit
+
+    const [data, total] = await Promise.all([
+      this.prisma.projetos.findMany({
+        skip,
+        take: limit,
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.projetos.count(),
+    ])
+    return { data, total, page, totalPages: Math.ceil(total / limit) }
   }
 
   async findOne(id: number) {
@@ -23,9 +33,9 @@ export class ProjetosService {
       where: { id }
     });
 
-        if (!projeto) {
-          throw new NotFoundException(`Projeto ${id} não encontrado`)
-        }
+    if (!projeto) {
+      throw new NotFoundException(`Projeto ${id} não encontrado`)
+    }
 
     return projeto;
   }
