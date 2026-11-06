@@ -8,9 +8,9 @@ export class ComentariostarefasService {
   @Inject()
   private readonly prisma: PrismaService
 
-  create(createComentariostarefaDto: CreateComentariostarefaDto) {
+  create(createComentariostarefaDto: CreateComentariostarefaDto, idUsuario: number) {
     return this.prisma.comentariosTarefas.create({
-      data: createComentariostarefaDto
+      data: { ...createComentariostarefaDto, idUsuario }
     });
   }
 

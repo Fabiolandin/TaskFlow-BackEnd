@@ -8,11 +8,12 @@ export class TarefasService {
   @Inject()
   private readonly prisma: PrismaService
 
-  create(createTarefaDto: CreateTarefaDto) {
+  create(createTarefaDto: CreateTarefaDto, idUsuarioCriador: number) {
     const { labelIds, ...dadosTarefa } = createTarefaDto
     return this.prisma.tarefas.create({
       data: {
         ...dadosTarefa,
+        idUsuarioCriador,
         labelsTarefas: {
           create: labelIds?.map(idLabel => ({
             label: { connect: { id: idLabel } }

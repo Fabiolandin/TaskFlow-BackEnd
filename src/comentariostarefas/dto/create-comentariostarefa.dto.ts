@@ -8,8 +8,4 @@ export class CreateComentariostarefaDto {
     @IsNotEmpty()
     @IsNumber()
     idTarefa: number
-
-    @IsNotEmpty()
-    @IsNumber()
-    idUsuario: number
 }

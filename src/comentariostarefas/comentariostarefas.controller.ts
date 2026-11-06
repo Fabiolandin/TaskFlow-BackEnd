@@ -4,6 +4,8 @@ import { CreateComentariostarefaDto } from './dto/create-comentariostarefa.dto';
 import { UpdateComentariostarefaDto } from './dto/update-comentariostarefa.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ComentariosTarefas } from '@prisma/client';
+import { UsuarioAtual } from 'src/auth/usuario-atual.decorator';
+import type { UsuarioAutenticado } from 'src/auth/usuario-atual.decorator';
 
 @ApiTags('Comentário das Tarefas')
 @Controller('comentariostarefas')
@@ -13,9 +15,10 @@ export class ComentariostarefasController {
   @Post()
   @ApiOperation({ summary: 'Criar um novo comentário de tarefa' })
   create(
-    @Body() createComentariostarefaDto: CreateComentariostarefaDto
+    @Body() createComentariostarefaDto: CreateComentariostarefaDto,
+    @UsuarioAtual() usuario: UsuarioAutenticado
   ): Promise<ComentariosTarefas> {
-    return this.comentariostarefasService.create(createComentariostarefaDto);
+    return this.comentariostarefasService.create(createComentariostarefaDto, usuario.id);
   }
 
   @Get()
