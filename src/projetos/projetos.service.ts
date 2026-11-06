@@ -2,6 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProjetoDto } from './dto/create-projeto.dto';
 import { UpdateProjetoDto } from './dto/update-projeto.dto';
 import { PrismaService } from 'src/database/prisma.service';
+import { INCLUDE_MEMBROS, comMembros } from 'src/membros/membros.service';
 
 @Injectable()
 export class ProjetosService {
@@ -22,24 +23,24 @@ export class ProjetosService {
         skip,
         take: limit,
         orderBy: { id: 'asc' },
-        include: { status: true },
+        include: { status: true, usuariosProjetos: INCLUDE_MEMBROS },
       }),
       this.prisma.projetos.count(),
     ])
-    return { data, total, page, totalPages: Math.ceil(total / limit) }
+    return { data: data.map(comMembros), total, page, totalPages: Math.ceil(total / limit) }
   }
 
   async findOne(id: number) {
     const projeto = await this.prisma.projetos.findUnique({
       where: { id },
-      include: { status: true }
+      include: { status: true, usuariosProjetos: INCLUDE_MEMBROS }
     });
 
     if (!projeto) {
       throw new NotFoundException(`Projeto ${id} não encontrado`)
     }
 
-    return projeto;
+    return comMembros(projeto);
   }
 
   update(id: number, updateProjetoDto: UpdateProjetoDto) {
