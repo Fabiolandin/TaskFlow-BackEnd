@@ -28,6 +28,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
             message = 'Registro não encontrado'
         }
 
+        //P2003 é violação de chave estrangeira: o registro está em uso por outro e o banco recusa a exclusão (SPEC-002)
+        else if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code ==='P2003'){
+            status = 409;
+            message = 'Registro em uso: não pode ser excluído porque outros registros dependem dele'
+        }
+
         //monsta a mensagem e retorna
         response.status(status).json({
             statusCode: status,
