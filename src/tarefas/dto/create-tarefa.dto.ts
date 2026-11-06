@@ -1,5 +1,9 @@
-import { IsDate, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
+import { IsDate, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
 import { Type } from "class-transformer"
+
+// RF-22: conjunto fixo, não cadastro.
+export const PRIORIDADES = ['Baixa', 'Média', 'Alta', 'Urgente'] as const
+export type Prioridade = typeof PRIORIDADES[number]
 
 export class CreateTarefaDto {
 
@@ -13,11 +17,10 @@ export class CreateTarefaDto {
 
     @IsNotEmpty()
     @IsNumber()
-    status: number
+    idStatus: number
 
-    @IsNotEmpty()
-    @IsString()
-    prioridade: string
+    @IsIn(PRIORIDADES)
+    prioridade: Prioridade
 
     @IsOptional()
     @Type(() => Date)

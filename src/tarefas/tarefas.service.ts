@@ -25,7 +25,7 @@ export class TarefasService {
   }
 
   findAll() {
-    return this.prisma.tarefas.findMany();
+    return this.prisma.tarefas.findMany({ include: { status: true } });
   }
 
   async findOne(id: number) {
@@ -34,7 +34,8 @@ export class TarefasService {
       select: {
         id: true,
         nome: true,
-        status: true,
+        idStatus: true,
+        status: { select: { id: true, nome: true, cor: true, isFinal: true } },
         prioridade: true,
         data_inicio: true,
         data_final: true,

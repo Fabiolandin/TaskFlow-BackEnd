@@ -67,14 +67,14 @@ describe('SPEC-004: identidade vem do token', () => {
       data: { nome: 'Repro B', email: 'b@teste.com', senha: 'x' },
     });
     const projeto = await prisma.projetos.create({
-      data: { nome: 'Projeto', status: 1 },
+      data: { nome: 'Projeto', idStatus: 1 },
     });
     // Registros "já existentes", criados por B, para o CA-R4.
     const tarefaExistente = await prisma.tarefas.create({
       data: {
         nome: 'Existente',
-        status: 1,
-        prioridade: 'alta',
+        idStatus: 1,
+        prioridade: 'Alta',
         idUsuarioCriador: b.id,
         idProjeto: projeto.id,
       },
@@ -119,8 +119,8 @@ describe('SPEC-004: identidade vem do token', () => {
 
   const tarefaBase = () => ({
     nome: 'Repro identidade',
-    status: 1,
-    prioridade: 'alta',
+    idStatus: 1,
+    prioridade: 'Alta',
     idProjeto: ids.projeto,
   });
 

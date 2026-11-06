@@ -22,6 +22,7 @@ export class ProjetosService {
         skip,
         take: limit,
         orderBy: { id: 'asc' },
+        include: { status: true },
       }),
       this.prisma.projetos.count(),
     ])
@@ -30,7 +31,8 @@ export class ProjetosService {
 
   async findOne(id: number) {
     const projeto = await this.prisma.projetos.findUnique({
-      where: { id }
+      where: { id },
+      include: { status: true }
     });
 
     if (!projeto) {
