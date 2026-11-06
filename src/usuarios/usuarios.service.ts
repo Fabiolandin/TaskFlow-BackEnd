@@ -74,9 +74,12 @@ export class UsuariosService {
     return usuarioSemSenha;
   }
 
-  remove(id: number) {
-    return this.prisma.usuarios.delete({
+  async remove(id: number) {
+    const usuario = await this.prisma.usuarios.delete({
       where: { id },
     });
+
+    const { senha, ...usuarioSemSenha } = usuario;
+    return usuarioSemSenha;
   }
 }
