@@ -199,6 +199,8 @@ describe('SPEC-004: identidade vem do token', () => {
   });
 
   it('CA-R2: idUsuarioResponsavel continua opcional e continua vindo do corpo', async () => {
+    // Ajuste de dado (SPEC-010, RF-26): o responsável precisa ser membro do projeto.
+    await prisma.usuariosProjetos.create({ data: { idUsuario: ids.b, idProjeto: ids.projeto } });
     const comResp = await post('/tarefas', { ...tarefaR(), idUsuarioResponsavel: ids.b });
     expect(comResp.status).toBe(201);
     expect(comResp.body.idUsuarioResponsavel).toBe(ids.b);

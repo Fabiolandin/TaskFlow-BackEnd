@@ -1,4 +1,5 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -8,8 +9,28 @@ export class TarefasService {
   @Inject()
   private readonly prisma: PrismaService
 
-  create(createTarefaDto: CreateTarefaDto, idUsuarioCriador: number) {
+  // RF-26: o responsável, quando há, precisa ser membro do projeto da tarefa.
+  private async garantirResponsavelMembro(
+    db: Prisma.TransactionClient,
+    idUsuarioResponsavel: number | null | undefined,
+    idProjeto: number,
+  ) {
+    if (idUsuarioResponsavel === null || idUsuarioResponsavel === undefined) return
+    const vinculo = await db.usuariosProjetos.findUnique({
+      where: { idUsuario_idProjeto: { idUsuario: idUsuarioResponsavel, idProjeto } },
+      select: { id: true },
+    })
+    if (!vinculo) {
+      throw new HttpException(
+        'O responsável precisa ser membro do projeto da tarefa',
+        HttpStatus.BAD_REQUEST,
+      )
+    }
+  }
+
+  async create(createTarefaDto: CreateTarefaDto, idUsuarioCriador: number) {
     const { labelIds, ...dadosTarefa } = createTarefaDto
+    await this.garantirResponsavelMembro(this.prisma, dadosTarefa.idUsuarioResponsavel, dadosTarefa.idProjeto)
     return this.prisma.tarefas.create({
       data: {
         ...dadosTarefa,
@@ -57,6 +78,21 @@ export class TarefasService {
     const { labelIds, ...dadosTarefa } = updateTarefaDto
 
     return this.prisma.$transaction(async (tx) => {
+      // RF-26: só confere quando o PATCH mexe no responsável ou no projeto; vale o estado final.
+      if (dadosTarefa.idUsuarioResponsavel !== undefined || dadosTarefa.idProjeto !== undefined) {
+        const atual = await tx.tarefas.findUnique({
+          where: { id },
+          select: { idUsuarioResponsavel: true, idProjeto: true },
+        })
+        if (atual) {
+          await this.garantirResponsavelMembro(
+            tx,
+            dadosTarefa.idUsuarioResponsavel !== undefined ? dadosTarefa.idUsuarioResponsavel : atual.idUsuarioResponsavel,
+            dadosTarefa.idProjeto ?? atual.idProjeto,
+          )
+        }
+      }
+
       //atualizar os campos padrões das tarefas
       const tarefa = await tx.tarefas.update({
         where: { id },
