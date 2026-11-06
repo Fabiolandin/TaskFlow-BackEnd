@@ -35,10 +35,6 @@ export class CreateTarefaDto {
 
     @IsNotEmpty()
     @IsNumber()
-    idUsuarioCriador: number
-
-    @IsNotEmpty()
-    @IsNumber()
     idProjeto: number
 
     labelIds?: number[]

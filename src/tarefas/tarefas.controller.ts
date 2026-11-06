@@ -4,6 +4,8 @@ import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Tarefas } from '@prisma/client';
+import { UsuarioAtual } from 'src/auth/usuario-atual.decorator';
+import type { UsuarioAutenticado } from 'src/auth/usuario-atual.decorator';
 
 @ApiTags('Tarefas')
 @Controller('tarefas')
@@ -13,9 +15,10 @@ export class TarefasController {
   @Post()
   @ApiOperation({ summary: 'Criar uma nova tarefa' })
   create(
-    @Body() createTarefaDto: CreateTarefaDto
+    @Body() createTarefaDto: CreateTarefaDto,
+    @UsuarioAtual() usuario: UsuarioAutenticado
   ): Promise<Tarefas> {
-    return this.tarefasService.create(createTarefaDto);
+    return this.tarefasService.create(createTarefaDto, usuario.id);
   }
 
   @Get()
