@@ -66,13 +66,13 @@ describe('SPEC-002: apagar registro em uso', () => {
       data: { nome: 'Comentarista', email: 'coment@teste.com', senha: 'x' },
     });
     const projeto = await prisma.projetos.create({
-      data: { nome: 'Projeto', status: 1 },
+      data: { nome: 'Projeto', idStatus: 1 },
     });
     const tarefa = await prisma.tarefas.create({
       data: {
         nome: 'Tarefa',
-        status: 1,
-        prioridade: 'alta',
+        idStatus: 1,
+        prioridade: 'Alta',
         idUsuarioCriador: criador.id,
         idProjeto: projeto.id,
       },
