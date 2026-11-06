@@ -59,3 +59,7 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # backups locais do banco (antes de migration)
 prisma/backups/
+
+# banco SQLite local (cada máquina recria pelas migrations)
+prisma/dev.db
+prisma/dev.db-journal
