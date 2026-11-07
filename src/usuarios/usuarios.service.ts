@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -75,6 +75,15 @@ export class UsuariosService {
   }
 
   async remove(id: number) {
+    // RF-30: membro de projeto não é excluído, e o vínculo não é desfeito junto (SPEC-013, D-1)
+    const projetos = await this.prisma.usuariosProjetos.count({ where: { idUsuario: id } });
+    if (projetos > 0) {
+      throw new HttpException(
+        `O usuário é membro de ${projetos} projeto(s): remova-o dos projetos antes de excluí-lo`,
+        HttpStatus.CONFLICT,
+      );
+    }
+
     const usuario = await this.prisma.usuarios.delete({
       where: { id },
     });

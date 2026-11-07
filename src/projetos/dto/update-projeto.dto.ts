@@ -1,4 +1,5 @@
-import { PartialType } from '@nestjs/swagger';
+import { OmitType, PartialType } from '@nestjs/swagger';
 import { CreateProjetoDto } from './create-projeto.dto';
 
-export class UpdateProjetoDto extends PartialType(CreateProjetoDto) {}
+//membros não entram no PATCH: a edição é pelas rotas projetos/:id/membros (SPEC-012)
+export class UpdateProjetoDto extends PartialType(OmitType(CreateProjetoDto, ['membros'] as const)) {}

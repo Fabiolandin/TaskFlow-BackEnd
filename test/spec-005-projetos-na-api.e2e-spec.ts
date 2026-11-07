@@ -108,7 +108,8 @@ describe('SPEC-005: contrato de /projetos que a tela consome', () => {
       .post('/projetos', { nome: 'Novo', descricao: 'Desc', idStatus: 2, data_inicio: '2026-11-06' })
       .expect(201);
     expect(criado.body.data_inicio).toBe('2026-11-06T00:00:00.000Z'); // meia-noite UTC: a tela formata em UTC
-    expect(criado.body.membros).toBeUndefined(); // o POST não traz membros: a tela recarrega a lista
+    // desde a SPEC-012 (D-2) o POST responde no formato de GET /projetos/:id; sem `membros` no corpo, vem []
+    expect(criado.body.membros).toEqual([]);
 
     for (const idUsuario of [usuarios[1], usuarios[2]]) {
       await http().post(`/projetos/${criado.body.id}/membros`, { idUsuario }).expect(201);

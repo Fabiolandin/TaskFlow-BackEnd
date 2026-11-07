@@ -1,4 +1,4 @@
-import { IsDate, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator"
+import { ArrayUnique, IsArray, IsDate, IsInt, IsNotEmpty, IsOptional, IsString } from "class-validator"
 import { Type } from "class-transformer"
 
 export class CreateProjetoDto {
@@ -23,4 +23,11 @@ export class CreateProjetoDto {
     @Type(() => Date)
     @IsDate()
     data_final?: Date
+
+    //ids dos usuários que entram como membros, gravados junto com o projeto (RF-28)
+    @IsOptional()
+    @IsArray()
+    @IsInt({ each: true })
+    @ArrayUnique()
+    membros?: number[]
 }

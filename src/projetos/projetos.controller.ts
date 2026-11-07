@@ -14,7 +14,7 @@ export class ProjetosController {
   @ApiOperation({ summary: 'Criar um novo projeto' })
   create(
     @Body() createProjetoDto: CreateProjetoDto
-  ): Promise<Projetos> {
+  ) {
     return this.projetosService.create(createProjetoDto);
   }
 

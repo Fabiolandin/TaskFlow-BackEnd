@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateProjetoDto } from './dto/create-projeto.dto';
 import { UpdateProjetoDto } from './dto/update-projeto.dto';
 import { PrismaService } from 'src/database/prisma.service';
@@ -9,10 +9,34 @@ export class ProjetosService {
   @Inject()
   private readonly prisma: PrismaService
 
-  create(createProjetoDto: CreateProjetoDto) {
-    return this.prisma.projetos.create({
-      data: createProjetoDto
+  // RF-28: projeto e membros numa gravação só. A escrita aninhada do Prisma já roda numa
+  // transação; um usuário apagado entre a checagem e o create cai no P2003 (400, SPEC-011).
+  async create(createProjetoDto: CreateProjetoDto) {
+    const { membros = [], ...dados } = createProjetoDto;
+
+    if (membros.length) {
+      const existentes = await this.prisma.usuarios.findMany({
+        where: { id: { in: membros } },
+        select: { id: true },
+      });
+      const achados = new Set(existentes.map((u) => u.id));
+      const faltando = membros.filter((id) => !achados.has(id));
+      if (faltando.length) {
+        throw new HttpException(
+          `Usuário(s) não encontrado(s): ${faltando.join(', ')}`,
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+    }
+
+    const projeto = await this.prisma.projetos.create({
+      data: {
+        ...dados,
+        usuariosProjetos: { create: membros.map((idUsuario) => ({ idUsuario })) },
+      },
+      include: { status: true, usuariosProjetos: INCLUDE_MEMBROS },
     });
+    return comMembros(projeto);
   }
 
   async findAll(page: number = 1, limit: number = 9) {

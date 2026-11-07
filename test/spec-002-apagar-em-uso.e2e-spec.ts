@@ -223,9 +223,11 @@ describe('SPEC-002: AllExceptionsFilter isolado (CA-R4)', () => {
     });
   });
 
-  it('CA-R4: erro do Prisma de outro código (P2002) continua no 500 genérico', () => {
-    const e = new Prisma.PrismaClientKnownRequestError('unique', {
-      code: 'P2002',
+  // Amostra trocada de P2002 para P2000 em 06/11/2026: P2002 (campo único) passou a ser
+  // tratado (409, correção do email duplicado). O CA-R4 continua o mesmo: código não tratado → 500.
+  it('CA-R4: erro do Prisma de outro código (P2000) continua no 500 genérico', () => {
+    const e = new Prisma.PrismaClientKnownRequestError('valor longo demais', {
+      code: 'P2000',
       clientVersion: 'test',
     });
     expect(executar(e)).toEqual({
