@@ -1,0 +1,43 @@
+import { IsInt, IsOptional, Max, Min } from 'class-validator'
+import { Type } from 'class-transformer'
+
+// RF-31: paginação e filtros de GET /tarefas. Tudo inteiro; valor inválido responde 400.
+export class QueryTarefaDto {
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page: number = 1
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(100)
+    limit: number = 10
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idProjeto?: number
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idStatus?: number
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idUsuarioResponsavel?: number
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idUsuarioCriador?: number
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idLabel?: number
+}

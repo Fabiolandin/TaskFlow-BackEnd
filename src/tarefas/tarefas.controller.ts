@@ -1,9 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { TarefasService } from './tarefas.service';
 import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
+import { QueryTarefaDto } from './dto/query-tarefa.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Tarefas } from '@prisma/client';
 import { UsuarioAtual } from 'src/auth/usuario-atual.decorator';
 import type { UsuarioAutenticado } from 'src/auth/usuario-atual.decorator';
 
@@ -17,14 +17,14 @@ export class TarefasController {
   create(
     @Body() createTarefaDto: CreateTarefaDto,
     @UsuarioAtual() usuario: UsuarioAutenticado
-  ): Promise<Tarefas> {
+  ) {
     return this.tarefasService.create(createTarefaDto, usuario.id);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Listar todas as tarefas' })
-  findAll() {
-    return this.tarefasService.findAll();
+  @ApiOperation({ summary: 'Listar tarefas (paginado e filtrável)' })
+  findAll(@Query() query: QueryTarefaDto) {
+    return this.tarefasService.findAll(query);
   }
 
   @Get(':id')
@@ -35,8 +35,7 @@ export class TarefasController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualizar uma tarefa por ID' })
-  update(@Param('id') id: string, @Body() updateTarefaDto: UpdateTarefaDto)
-    : Promise<Tarefas> {
+  update(@Param('id') id: string, @Body() updateTarefaDto: UpdateTarefaDto) {
     return this.tarefasService.update(+id, updateTarefaDto);
   }
 

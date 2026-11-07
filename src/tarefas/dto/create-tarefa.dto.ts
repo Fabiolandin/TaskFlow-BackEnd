@@ -1,4 +1,4 @@
-import { IsDate, IsIn, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
+import { ArrayUnique, IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
 import { Type } from "class-transformer"
 
 // RF-22: conjunto fixo, não cadastro.
@@ -40,5 +40,10 @@ export class CreateTarefaDto {
     @IsNumber()
     idProjeto: number
 
+    // RF-33: ids de labels existentes, sem repetição (a existência é conferida no service)
+    @IsOptional()
+    @IsArray()
+    @IsInt({ each: true })
+    @ArrayUnique()
     labelIds?: number[]
 }

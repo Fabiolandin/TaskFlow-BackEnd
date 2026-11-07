@@ -265,7 +265,8 @@ describe('SPEC-010: membros do projeto', () => {
 
     const tarefas = await http(tokenOutro).get('/tarefas');
     expect(tarefas.status).toBe(200);
-    expect(tarefas.body).toHaveLength(await prisma.tarefas.count());
+    // emenda SPEC-006 (D-1): GET /tarefas agora é o envelope paginado
+    expect(tarefas.body.total).toBe(await prisma.tarefas.count());
 
     const um = await http(tokenOutro).get(`/projetos/${ids.projeto}`);
     expect(um.status).toBe(200);
