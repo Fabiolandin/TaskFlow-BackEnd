@@ -8,13 +8,14 @@ import { ComentariostarefasModule } from './comentariostarefas/comentariostarefa
 import { StatusprojetoModule } from './statusprojeto/statusprojeto.module';
 import { StatustarefaModule } from './statustarefa/statustarefa.module';
 import { MembrosModule } from './membros/membros.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from './validationSchemas/validation.pipe';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 @Module({
-  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule, ComentariostarefasModule, StatusprojetoModule, StatustarefaModule, MembrosModule, AuthModule],
+  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule, ComentariostarefasModule, StatusprojetoModule, StatustarefaModule, MembrosModule, DashboardModule, AuthModule],
   providers: [
     {
       provide: APP_PIPE,
