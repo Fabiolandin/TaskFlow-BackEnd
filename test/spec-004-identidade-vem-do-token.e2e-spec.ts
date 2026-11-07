@@ -171,9 +171,14 @@ describe('SPEC-004: identidade vem do token', () => {
     expect(t.body.nome).toBe('Renomeada');
     expect(t.body.idUsuarioCriador).toBe(ids.b);
 
+    // Emenda (SPEC-007, RF-36): só o autor edita; o comentário existente é de B, então o PATCH é feito com o token de B.
+    const tokenB = new JwtService({ secret: process.env.JWT_SECRET }).sign(
+      { sub: ids.b, email: 'b@teste.com' },
+      { expiresIn: '1h' },
+    );
     const c = await request(server)
       .patch(`/comentariostarefas/${ids.comentarioExistente}`)
-      .set('Authorization', `Bearer ${tokenA}`)
+      .set('Authorization', `Bearer ${tokenB}`)
       .send({ comentario: 'editado', idUsuario: ids.a });
     expect(c.status).toBe(200);
     expect(c.body.comentario).toBe('editado');

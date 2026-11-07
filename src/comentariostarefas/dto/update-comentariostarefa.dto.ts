@@ -1,4 +1,8 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateComentariostarefaDto } from './create-comentariostarefa.dto';
+import { IsNotEmpty, IsString } from 'class-validator'
 
-export class UpdateComentariostarefaDto extends PartialType(CreateComentariostarefaDto) {}
+// RF-36: o PATCH só altera o texto. idTarefa e idUsuario não existem aqui: o whitelist os descarta.
+export class UpdateComentariostarefaDto {
+    @IsNotEmpty()
+    @IsString()
+    comentario: string
+}

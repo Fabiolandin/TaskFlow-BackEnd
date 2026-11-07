@@ -104,13 +104,16 @@ export class TarefasService {
   }
 
   async findAll(query: QueryTarefaDto) {
-    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel } = query
+    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido } = query
     const where: Prisma.TarefasWhereInput = {
       idProjeto,
       idStatus,
       idUsuarioResponsavel,
       idUsuarioCriador,
       ...(idLabel !== undefined && { labelsTarefas: { some: { idLabel } } }),
+      ...(idUsuarioEnvolvido !== undefined && {
+        OR: [{ idUsuarioResponsavel: idUsuarioEnvolvido }, { idUsuarioCriador: idUsuarioEnvolvido }],
+      }),
     }
     const [total, tarefas] = await Promise.all([
       this.prisma.tarefas.count({ where }),

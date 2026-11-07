@@ -40,4 +40,10 @@ export class QueryTarefaDto {
     @Type(() => Number)
     @IsInt()
     idLabel?: number
+
+    // RF-38: responsável OU criador; combina com E com os demais filtros.
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idUsuarioEnvolvido?: number
 }
