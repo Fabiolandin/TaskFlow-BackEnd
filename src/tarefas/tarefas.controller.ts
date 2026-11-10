@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe } from '@nestjs/common';
 import { TarefasService } from './tarefas.service';
 import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
@@ -33,10 +33,22 @@ export class TarefasController {
     return this.tarefasService.findOne(+id);
   }
 
+  // RF-54: só leitura; não há rota de escrita de atividade (RF-53). O id nasce validado (400, nunca 500)
+  @Get(':id/atividades')
+  @ApiOperation({ summary: 'Histórico de alterações de uma tarefa' })
+  findAtividades(@Param('id', ParseIntPipe) id: number) {
+    return this.tarefasService.findAtividades(id);
+  }
+
   @Patch(':id')
   @ApiOperation({ summary: 'Atualizar uma tarefa por ID' })
-  update(@Param('id') id: string, @Body() updateTarefaDto: UpdateTarefaDto) {
-    return this.tarefasService.update(+id, updateTarefaDto);
+  update(
+    @Param('id') id: string,
+    @Body() updateTarefaDto: UpdateTarefaDto,
+    @UsuarioAtual() usuario: UsuarioAutenticado
+  ) {
+    // RF-08/RF-53: o autor da atividade é o usuário do token
+    return this.tarefasService.update(+id, updateTarefaDto, usuario.id);
   }
 
   @Delete(':id')

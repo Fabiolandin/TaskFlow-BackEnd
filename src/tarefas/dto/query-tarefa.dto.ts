@@ -1,5 +1,5 @@
-import { IsInt, IsOptional, Max, Min } from 'class-validator'
-import { Type } from 'class-transformer'
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
+import { Transform, Type } from 'class-transformer'
 
 // RF-31: paginação e filtros de GET /tarefas. Tudo inteiro; valor inválido responde 400.
 export class QueryTarefaDto {
@@ -46,4 +46,11 @@ export class QueryTarefaDto {
     @Type(() => Number)
     @IsInt()
     idUsuarioEnvolvido?: number
+
+    // RF-56: nome contém o texto; espaços das pontas não contam; vazia equivale a sem busca
+    @IsOptional()
+    @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+    @IsString()
+    @MaxLength(100)
+    busca?: string
 }

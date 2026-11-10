@@ -17,6 +17,7 @@ model Usuarios {
   tarefasCriadas      Tarefas[]            @relation("TarefaCriador")
   tarefasResponsaveis Tarefas[]            @relation("TarefaResponsavel")
   comentariosTarefas  ComentariosTarefas[]
+  atividadesTarefa    AtividadesTarefa[]
 }
 
 model Projetos {
@@ -64,6 +65,7 @@ model Tarefas {
   projeto              Projetos             @relation(fields: [idProjeto], references: [id])
   labelsTarefas        LabelsTarefas[]
   comentariosTarefas   ComentariosTarefas[]
+  atividadesTarefa     AtividadesTarefa[]
 }
 
 model ComentariosTarefas {
@@ -117,4 +119,23 @@ model StatusTarefa {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   tarefas   Tarefas[]
+}
+
+// Histórico da tarefa (RF-53): uma linha por campo que mudou num PATCH; imutável (sem updatedAt).
+// Autor por id com SET NULL + nome guardado; ids de valor sem FK (SPEC-016, D-1/D-2).
+model AtividadesTarefa {
+  id            Int       @id @default(autoincrement())
+  idTarefa      Int
+  tarefa        Tarefas   @relation(fields: [idTarefa], references: [id])
+  idUsuario     Int?
+  usuario       Usuarios? @relation(fields: [idUsuario], references: [id], onDelete: SetNull)
+  nomeUsuario   String
+  campo         String
+  valorAnterior String?
+  valorNovo     String?
+  idAnterior    Int?
+  idNovo        Int?
+  createdAt     DateTime  @default(now())
+
+  @@index([idTarefa, createdAt])
 }

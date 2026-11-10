@@ -2,8 +2,8 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestj
 import { ProjetosService } from './projetos.service';
 import { CreateProjetoDto } from './dto/create-projeto.dto';
 import { UpdateProjetoDto } from './dto/update-projeto.dto';
+import { QueryProjetoDto } from './dto/query-projeto.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Projetos } from '@prisma/client';
 
 @ApiTags('Projetos')
 @Controller('projetos')
@@ -20,11 +20,8 @@ export class ProjetosController {
 
   @Get()
   @ApiOperation({ summary: 'Listar todos os projetos' })
-  findAll(
-    @Query('page') page: string = '1',
-    @Query('limit') limit: string = '9',
-  ) {
-    return this.projetosService.findAll(+page, +limit);
+  findAll(@Query() query: QueryProjetoDto) {
+    return this.projetosService.findAll(query);
   }
 
   @Get(':id')
@@ -35,8 +32,7 @@ export class ProjetosController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Atualizar um projeto pelo ID' })
-  update(@Param('id') id: string, @Body() updateProjetoDto: UpdateProjetoDto) 
-  : Promise<Projetos> {
+  update(@Param('id') id: string, @Body() updateProjetoDto: UpdateProjetoDto) {
     return this.projetosService.update(+id, updateProjetoDto);
   }
 

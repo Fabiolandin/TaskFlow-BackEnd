@@ -219,7 +219,6 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
     await prisma.usuariosProjetos.deleteMany({ where: { idUsuario: ids.criador } });
     for (const url of [
       `/labels/${ids.labelEmUso}`,
-      `/projetos/${ids.projeto}`,
       `/usuarios/${ids.criador}`,
       '/statusprojeto/1',
       '/statustarefa/1',
@@ -228,6 +227,10 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
       esperaCorpo(res, 409);
       expect(res.body.message).toMatch(/^Registro em uso: /);
     }
+    // Emenda da SPEC-016 (RF-50): projeto com tarefas é recusado antes, com mensagem própria.
+    const projeto = await del(`/projetos/${ids.projeto}`);
+    esperaCorpo(projeto, 409);
+    expect(projeto.body.message).toMatch(/^Projeto em uso: /);
   });
 
   it('CA-R2: P2025 continua 404 "Registro não encontrado"', async () => {

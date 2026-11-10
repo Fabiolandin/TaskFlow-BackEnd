@@ -5,6 +5,7 @@ import { UpdateTarefaDto } from './dto/update-tarefa.dto';
 import { QueryTarefaDto } from './dto/query-tarefa.dto';
 import { PrismaService } from 'src/database/prisma.service';
 import { SELECT_MEMBRO } from 'src/membros/membros.service';
+import { idsComNome } from 'src/database/busca';
 
 // RF-32: um só formato de tarefa nas 4 rotas. Usuário só com SELECT_MEMBRO: nunca `senha`.
 export const SELECT_TAREFA = {
@@ -41,6 +42,45 @@ export function formatarTarefa(tarefa: TarefaBruta) {
     criador: usuarioCriador,
     labels: labelsTarefas.map((v) => v.label),
   };
+}
+
+type Mudanca = Pick<Prisma.AtividadesTarefaCreateManyInput, 'campo' | 'valorAnterior' | 'valorNovo' | 'idAnterior' | 'idNovo'>;
+
+// dia AAAA-MM-DD em UTC, como a tela grava e mostra (ponto 22)
+const dia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+// RF-53: compara antes × depois e devolve uma mudança por campo que de fato mudou (label: uma por label)
+function diferencas(antes: TarefaBruta, depois: TarefaBruta): Mudanca[] {
+  const lista: Mudanca[] = [];
+  const comRegistro = (campo: string, a: { id: number; nome: string } | null, d: { id: number; nome: string } | null) => {
+    if ((a?.id ?? null) !== (d?.id ?? null)) {
+      lista.push({ campo, valorAnterior: a?.nome ?? null, valorNovo: d?.nome ?? null, idAnterior: a?.id ?? null, idNovo: d?.id ?? null });
+    }
+  };
+  comRegistro('status', antes.status, depois.status);
+  if (antes.prioridade !== depois.prioridade) {
+    lista.push({ campo: 'prioridade', valorAnterior: antes.prioridade, valorNovo: depois.prioridade, idAnterior: null, idNovo: null });
+  }
+  comRegistro('responsavel', antes.usuarioResponsavel, depois.usuarioResponsavel);
+  comRegistro('projeto', antes.projeto, depois.projeto);
+  for (const campo of ['data_inicio', 'data_final'] as const) {
+    if (dia(antes[campo]) !== dia(depois[campo])) {
+      lista.push({ campo, valorAnterior: dia(antes[campo]), valorNovo: dia(depois[campo]), idAnterior: null, idNovo: null });
+    }
+  }
+  const labelsAntes = antes.labelsTarefas.map((v) => v.label);
+  const labelsDepois = depois.labelsTarefas.map((v) => v.label);
+  for (const l of labelsDepois) {
+    if (!labelsAntes.some((x) => x.id === l.id)) lista.push({ campo: 'label', valorAnterior: null, valorNovo: l.nome, idAnterior: null, idNovo: l.id });
+  }
+  for (const l of labelsAntes) {
+    if (!labelsDepois.some((x) => x.id === l.id)) lista.push({ campo: 'label', valorAnterior: l.nome, valorNovo: null, idAnterior: l.id, idNovo: null });
+  }
+  // título e descrição: só registra que mudou (os quatro valores nulos)
+  for (const campo of ['nome', 'descricao'] as const) {
+    if (antes[campo] !== depois[campo]) lista.push({ campo, valorAnterior: null, valorNovo: null, idAnterior: null, idNovo: null });
+  }
+  return lista;
 }
 
 @Injectable()
@@ -104,8 +144,10 @@ export class TarefasService {
   }
 
   async findAll(query: QueryTarefaDto) {
-    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido } = query
+    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca } = query
     const where: Prisma.TarefasWhereInput = {
+      // RF-56: nome contém o texto; vazia equivale a sem busca
+      ...(busca && { id: { in: await idsComNome(this.prisma, 'Tarefas', busca) } }),
       idProjeto,
       idStatus,
       idUsuarioResponsavel,
@@ -136,23 +178,20 @@ export class TarefasService {
     return formatarTarefa(tarefa)
   }
 
-  update(id: number, updateTarefaDto: UpdateTarefaDto) {
+  update(id: number, updateTarefaDto: UpdateTarefaDto, idUsuario: number) {
     const { labelIds, ...dadosTarefa } = updateTarefaDto
 
     return this.prisma.$transaction(async (tx) => {
+      // RF-53: o estado anterior, para comparar com a releitura do fim (D-3)
+      const antes = await tx.tarefas.findUnique({ where: { id }, select: SELECT_TAREFA })
+
       // RF-26: só confere quando o PATCH mexe no responsável ou no projeto; vale o estado final.
-      if (dadosTarefa.idUsuarioResponsavel !== undefined || dadosTarefa.idProjeto !== undefined) {
-        const atual = await tx.tarefas.findUnique({
-          where: { id },
-          select: { idUsuarioResponsavel: true, idProjeto: true },
-        })
-        if (atual) {
-          await this.garantirResponsavelMembro(
-            tx,
-            dadosTarefa.idUsuarioResponsavel !== undefined ? dadosTarefa.idUsuarioResponsavel : atual.idUsuarioResponsavel,
-            dadosTarefa.idProjeto ?? atual.idProjeto,
-          )
-        }
+      if (antes && (dadosTarefa.idUsuarioResponsavel !== undefined || dadosTarefa.idProjeto !== undefined)) {
+        await this.garantirResponsavelMembro(
+          tx,
+          dadosTarefa.idUsuarioResponsavel !== undefined ? dadosTarefa.idUsuarioResponsavel : antes.idUsuarioResponsavel,
+          dadosTarefa.idProjeto ?? antes.idProjeto,
+        )
       }
 
       // RF-33: antes de gravar, para o PATCH recusado deixar tarefa e vínculos intactos
@@ -183,8 +222,46 @@ export class TarefasService {
       }
       // RF-32: relê depois da substituição, para devolver as labels novas
       const tarefa = await tx.tarefas.findUniqueOrThrow({ where: { id }, select: SELECT_TAREFA })
+
+      // RF-53: uma atividade por campo que mudou, na mesma transação; se não grava, nada grava
+      // (token de usuário excluído: a FK do autor falha → P2003 → 400 e rollback)
+      if (antes) {
+        const mudancas = diferencas(antes, tarefa)
+        if (mudancas.length > 0) {
+          const autor = await tx.usuarios.findUnique({ where: { id: idUsuario }, select: { nome: true } })
+          await tx.atividadesTarefa.createMany({
+            data: mudancas.map((m) => ({ ...m, idTarefa: id, idUsuario, nomeUsuario: autor?.nome ?? '' })),
+          })
+        }
+      }
       return formatarTarefa(tarefa);
     })
+  }
+
+  // RF-54: histórico em ordem crescente (createdAt, id); autor só com SELECT_MEMBRO, nunca `senha`
+  async findAtividades(id: number) {
+    const tarefa = await this.prisma.tarefas.findUnique({ where: { id }, select: { id: true } })
+    if (!tarefa) {
+      throw new NotFoundException(`Tarefa ${id} não encontrada`)
+    }
+    const atividades = await this.prisma.atividadesTarefa.findMany({
+      where: { idTarefa: id },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
+        id: true,
+        idTarefa: true,
+        campo: true,
+        valorAnterior: true,
+        valorNovo: true,
+        idAnterior: true,
+        idNovo: true,
+        createdAt: true,
+        idUsuario: true,
+        nomeUsuario: true,
+        usuario: { select: SELECT_MEMBRO },
+      },
+    })
+    return atividades.map(({ usuario, ...resto }) => ({ ...resto, autor: usuario }))
   }
 
   async remove(id: number) {
@@ -197,6 +274,11 @@ export class TarefasService {
       // apaga os comentários também
       await tx.comentariosTarefas.deleteMany({
         where: { idTarefa: id } // ajusta o nome do campo conforme seu schema
+      });
+
+      // e o histórico (RF-15)
+      await tx.atividadesTarefa.deleteMany({
+        where: { idTarefa: id }
       });
 
       // só agora pode apagar a tarefa
