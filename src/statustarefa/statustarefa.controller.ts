@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put } from '@nestjs/common';
 import { StatustarefaService } from './statustarefa.service';
 import { CreateStatustarefaDto } from './dto/create-statustarefa.dto';
 import { UpdateStatustarefaDto } from './dto/update-statustarefa.dto';
+import { ReordenarStatustarefaDto } from './dto/reordenar-statustarefa.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StatusTarefa } from '@prisma/client';
 
@@ -22,6 +23,13 @@ export class StatustarefaController {
   @ApiOperation({ summary: 'Listar os status de tarefa, pela ordem'})
   findAll() {
     return this.statustarefaService.findAll();
+  }
+
+  // RF-62: declarada antes das rotas com :id
+  @Put('ordem')
+  @ApiOperation({ summary: 'Reordenar os status de tarefa (lista inteira de ids)'})
+  reordenar(@Body() dto: ReordenarStatustarefaDto) {
+    return this.statustarefaService.reordenar(dto);
   }
 
   @Get(':id')

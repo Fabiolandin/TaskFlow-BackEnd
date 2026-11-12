@@ -475,7 +475,9 @@ describe('SPEC-016: projeto, histórico e busca (API)', () => {
       const esperado = [
         'createdAt', 'criador', 'data_final', 'data_inicio', 'descricao', 'id', 'idProjeto', 'idStatus', 'idUsuarioCriador',
         'idUsuarioResponsavel', 'labels', 'nome', 'prioridade', 'projeto', 'responsavel', 'status', 'updatedAt',
-      ];
+        // SPEC-019 alterou o RF-32: tarefa-pai e contagem de sub-tarefas
+        'idTarefaPai', 'subtarefas', 'tarefaPai',
+      ].sort();
       const lista = await get('/tarefas');
       const um = await get(`/tarefas/${t.id}`);
       const criada = await post('/tarefas', { nome: 'N', idStatus: 1, prioridade: 'Alta', idProjeto: p1 });

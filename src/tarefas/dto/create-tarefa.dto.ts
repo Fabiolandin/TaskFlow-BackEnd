@@ -40,6 +40,11 @@ export class CreateTarefaDto {
     @IsNumber()
     idProjeto: number
 
+    // RF-65: tarefa-pai, só na criação (o PATCH não aceita); existência e projeto conferidos no service
+    @IsOptional()
+    @IsInt()
+    idTarefaPai?: number
+
     // RF-33: ids de labels existentes, sem repetição (a existência é conferida no service)
     @IsOptional()
     @IsArray()

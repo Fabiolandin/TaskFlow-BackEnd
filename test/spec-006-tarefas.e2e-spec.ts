@@ -246,6 +246,10 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
         'responsavel',
         'criador',
         'labels',
+        // SPEC-019 alterou o RF-32: tarefa-pai e contagem de sub-tarefas
+        'idTarefaPai',
+        'tarefaPai',
+        'subtarefas',
       ].sort(),
     );
     expect(Object.keys(t.status).sort()).toEqual(['cor', 'id', 'isFinal', 'nome']);

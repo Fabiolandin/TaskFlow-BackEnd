@@ -23,6 +23,10 @@ export const SELECT_TAREFA = {
   idProjeto: true,
   status: { select: { id: true, nome: true, cor: true, isFinal: true } },
   projeto: { select: { id: true, nome: true } },
+  idTarefaPai: true,
+  tarefaPai: { select: { id: true, nome: true } },
+  // RF-32: só o isFinal de cada sub-tarefa direta, para a contagem
+  subtarefas: { select: { status: { select: { isFinal: true } } } },
   usuarioResponsavel: { select: SELECT_MEMBRO },
   usuarioCriador: { select: SELECT_MEMBRO },
   labelsTarefas: {
@@ -35,9 +39,10 @@ type TarefaBruta = Prisma.TarefasGetPayload<{ select: typeof SELECT_TAREFA }>;
 
 // Renomeia responsável/criador e achata `labelsTarefas` em `labels: [{ id, nome }]`.
 export function formatarTarefa(tarefa: TarefaBruta) {
-  const { usuarioResponsavel, usuarioCriador, labelsTarefas, ...resto } = tarefa;
+  const { usuarioResponsavel, usuarioCriador, labelsTarefas, subtarefas, ...resto } = tarefa;
   return {
     ...resto,
+    subtarefas: { total: subtarefas.length, concluidas: subtarefas.filter((s) => s.status.isFinal).length },
     responsavel: usuarioResponsavel,
     criador: usuarioCriador,
     labels: labelsTarefas.map((v) => v.label),
@@ -124,8 +129,21 @@ export class TarefasService {
     }
   }
 
+  // RF-65: a pai existe e é do mesmo projeto
+  private async garantirPai(idTarefaPai: number | undefined, idProjeto: number) {
+    if (idTarefaPai === undefined) return
+    const pai = await this.prisma.tarefas.findUnique({ where: { id: idTarefaPai }, select: { idProjeto: true } })
+    if (!pai) {
+      throw new HttpException(`Tarefa-pai inexistente: ${idTarefaPai}`, HttpStatus.BAD_REQUEST)
+    }
+    if (pai.idProjeto !== idProjeto) {
+      throw new HttpException('A sub-tarefa precisa estar no projeto da tarefa-pai', HttpStatus.BAD_REQUEST)
+    }
+  }
+
   async create(createTarefaDto: CreateTarefaDto, idUsuarioCriador: number) {
     const { labelIds, ...dadosTarefa } = createTarefaDto
+    await this.garantirPai(dadosTarefa.idTarefaPai, dadosTarefa.idProjeto)
     await this.garantirResponsavelMembro(this.prisma, dadosTarefa.idUsuarioResponsavel, dadosTarefa.idProjeto)
     await this.garantirLabelsExistem(this.prisma, labelIds)
     const tarefa = await this.prisma.tarefas.create({
@@ -144,7 +162,7 @@ export class TarefasService {
   }
 
   async findAll(query: QueryTarefaDto) {
-    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca } = query
+    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai } = query
     const where: Prisma.TarefasWhereInput = {
       // RF-56: nome contém o texto; vazia equivale a sem busca
       ...(busca && { id: { in: await idsComNome(this.prisma, 'Tarefas', busca) } }),
@@ -152,6 +170,7 @@ export class TarefasService {
       idStatus,
       idUsuarioResponsavel,
       idUsuarioCriador,
+      idTarefaPai,
       ...(idLabel !== undefined && { labelsTarefas: { some: { idLabel } } }),
       ...(idUsuarioEnvolvido !== undefined && {
         OR: [{ idUsuarioResponsavel: idUsuarioEnvolvido }, { idUsuarioCriador: idUsuarioEnvolvido }],
@@ -184,6 +203,12 @@ export class TarefasService {
     return this.prisma.$transaction(async (tx) => {
       // RF-53: o estado anterior, para comparar com a releitura do fim (D-3)
       const antes = await tx.tarefas.findUnique({ where: { id }, select: SELECT_TAREFA })
+
+      // RF-66: sub-tarefa, ou tarefa com sub-tarefas, não muda de projeto
+      if (antes && dadosTarefa.idProjeto !== undefined && dadosTarefa.idProjeto !== antes.idProjeto
+        && (antes.idTarefaPai !== null || antes.subtarefas.length > 0)) {
+        throw new HttpException('Sub-tarefa, ou tarefa com sub-tarefas, não muda de projeto', HttpStatus.BAD_REQUEST)
+      }
 
       // RF-26: só confere quando o PATCH mexe no responsável ou no projeto; vale o estado final.
       if (antes && (dadosTarefa.idUsuarioResponsavel !== undefined || dadosTarefa.idProjeto !== undefined)) {
@@ -266,6 +291,14 @@ export class TarefasService {
 
   async remove(id: number) {
     return this.prisma.$transaction(async (tx) => {
+      // RF-66: a sub-tarefa impede excluir a pai (RF-16)
+      const filhas = await tx.tarefas.count({ where: { idTarefaPai: id } })
+      if (filhas > 0) {
+        throw new HttpException(
+          `Tarefa em uso: tem ${filhas} sub-tarefa(s). Exclua as sub-tarefas antes de excluir a tarefa.`,
+          HttpStatus.CONFLICT,
+        )
+      }
       // apaga os links de labels primeiro
       await tx.labelsTarefas.deleteMany({
         where: { idTarefa: id }

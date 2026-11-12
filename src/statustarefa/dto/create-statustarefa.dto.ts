@@ -13,8 +13,10 @@ export class CreateStatustarefaDto {
     @Matches(/^#[0-9A-Fa-f]{6}$/)
     cor?: string | null;
 
+    //opcional (RF-21, SPEC-018): ausente, o status vai para o fim do cadastro
+    @IsOptional()
     @IsInt()
-    ordem: number;
+    ordem?: number;
 
     @IsOptional()
     @IsBoolean()

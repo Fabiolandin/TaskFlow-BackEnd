@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Put } from '@nestjs/common';
 import { StatusprojetoService } from './statusprojeto.service';
 import { CreateStatusprojetoDto } from './dto/create-statusprojeto.dto';
 import { UpdateStatusprojetoDto } from './dto/update-statusprojeto.dto';
+import { ReordenarStatusprojetoDto } from './dto/reordenar-statusprojeto.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StatusProjeto } from '@prisma/client';
 
@@ -22,6 +23,13 @@ export class StatusprojetoController {
   @ApiOperation({ summary: 'Listar os status de projeto, pela ordem'})
   findAll() {
     return this.statusprojetoService.findAll();
+  }
+
+  // RF-62: declarada antes das rotas com :id
+  @Put('ordem')
+  @ApiOperation({ summary: 'Reordenar os status de projeto (lista inteira de ids)'})
+  reordenar(@Body() dto: ReordenarStatusprojetoDto) {
+    return this.statusprojetoService.reordenar(dto);
   }
 
   @Get(':id')

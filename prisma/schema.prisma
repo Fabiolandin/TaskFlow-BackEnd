@@ -66,6 +66,11 @@ model Tarefas {
   labelsTarefas        LabelsTarefas[]
   comentariosTarefas   ComentariosTarefas[]
   atividadesTarefa     AtividadesTarefa[]
+  idTarefaPai          Int?
+  tarefaPai            Tarefas?             @relation("SubTarefas", fields: [idTarefaPai], references: [id], onDelete: Restrict)
+  subtarefas           Tarefas[]            @relation("SubTarefas")
+
+  @@index([idTarefaPai])
 }
 
 model ComentariosTarefas {

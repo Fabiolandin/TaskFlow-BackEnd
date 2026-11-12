@@ -162,7 +162,8 @@ describe('SPEC-014: cor de status em hex', () => {
     it('CA-R5: nome obrigatório e ordem inteira continuam exigidos', async () => {
       expect((await http().post(rota, { ordem: 9 })).status).toBe(400);
       expect((await http().post(rota, { nome: '', ordem: 9 })).status).toBe(400);
-      expect((await http().post(rota, { nome: 'X' })).status).toBe(400);
+      // SPEC-018 alterou o RF-21: ordem ausente é aceita (vai para o fim); continua valendo a ordem não inteira
+      expect((await http().post(rota, { nome: 'X' })).status).toBe(201);
       expect((await http().post(rota, { nome: 'X', ordem: 1.5 })).status).toBe(400);
 
       const base = await criarComCor(rota);

@@ -41,6 +41,12 @@ export class QueryTarefaDto {
     @IsInt()
     idLabel?: number
 
+    // RF-31/RF-65: só as sub-tarefas diretas desta tarefa
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    idTarefaPai?: number
+
     // RF-38: responsável OU criador; combina com E com os demais filtros.
     @IsOptional()
     @Type(() => Number)
