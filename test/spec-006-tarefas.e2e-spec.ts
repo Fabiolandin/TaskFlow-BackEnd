@@ -259,15 +259,15 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
       expect(Object.keys(t.responsavel).sort()).toEqual(['email', 'id', 'nome']);
     }
     expect(Array.isArray(t.labels)).toBe(true);
-    for (const l of t.labels) expect(Object.keys(l).sort()).toEqual(['id', 'nome']);
+    for (const l of t.labels) expect(Object.keys(l).sort()).toEqual(['cor', 'id', 'nome']); // SPEC-020 (RF-32): a label passou a ter cor (desvio A-1)
   }
 
   it('CA-05: as 4 rotas devolvem o mesmo formato', async () => {
     const lista = await http().get('/tarefas');
     esperaFormato(lista.body.data[1]);
     expect(lista.body.data[1].labels).toEqual([
-      { id: l1, nome: 'Bug' },
-      { id: l2, nome: 'Front' },
+      { id: l1, nome: 'Bug', cor: null },
+      { id: l2, nome: 'Front', cor: null },
     ]);
     expect(lista.body.data[1].responsavel).toEqual({ id: bia, nome: 'Bia', email: 'bia@teste.com' });
     expect(lista.body.data[5].responsavel).toBeNull();
@@ -315,7 +315,7 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
   it('CA-07: o PATCH devolve as labels depois da substituição', async () => {
     const res = await http().patch(`/tarefas/${tarefaIds[1]}`, { labelIds: [l3] });
     expect(res.status).toBe(200);
-    expect(res.body.labels).toEqual([{ id: l3, nome: 'Back' }]);
+    expect(res.body.labels).toEqual([{ id: l3, nome: 'Back', cor: null }]);
     expect(await vinculosDe(tarefaIds[1])).toEqual([l3]);
   });
 
@@ -323,8 +323,8 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
     const res = await http().post('/tarefas', novaTarefa({ labelIds: [l1, l2] }));
     expect(res.status).toBe(201);
     expect(res.body.labels).toEqual([
-      { id: l1, nome: 'Bug' },
-      { id: l2, nome: 'Front' },
+      { id: l1, nome: 'Bug', cor: null },
+      { id: l2, nome: 'Front', cor: null },
     ]);
     expect(await vinculosDe(res.body.id)).toEqual([l1, l2]);
   });

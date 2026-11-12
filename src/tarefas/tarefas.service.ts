@@ -30,14 +30,14 @@ export const SELECT_TAREFA = {
   usuarioResponsavel: { select: SELECT_MEMBRO },
   usuarioCriador: { select: SELECT_MEMBRO },
   labelsTarefas: {
-    select: { label: { select: { id: true, nome: true } } },
+    select: { label: { select: { id: true, nome: true, cor: true } } },
     orderBy: { idLabel: 'asc' },
   },
 } as const satisfies Prisma.TarefasSelect;
 
 type TarefaBruta = Prisma.TarefasGetPayload<{ select: typeof SELECT_TAREFA }>;
 
-// Renomeia responsável/criador e achata `labelsTarefas` em `labels: [{ id, nome }]`.
+// Renomeia responsável/criador e achata `labelsTarefas` em `labels: [{ id, nome, cor }]`.
 export function formatarTarefa(tarefa: TarefaBruta) {
   const { usuarioResponsavel, usuarioCriador, labelsTarefas, subtarefas, ...resto } = tarefa;
   return {

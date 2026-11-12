@@ -16,7 +16,7 @@ export class LabelsService {
 
   findAll() {
     return this.prisma.labels.findMany({
-      select: { id: true, nome: true, createdAt: true }
+      select: { id: true, nome: true, cor: true, createdAt: true }
     });
   }
 
