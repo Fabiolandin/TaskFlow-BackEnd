@@ -24,7 +24,8 @@ import { PrismaService } from '../src/database/prisma.service';
 import { AllExceptionsFilter } from '../src/filters/all-exceptions.filter';
 
 const MIGRATIONS_DIR = path.join(__dirname, '..', 'prisma', 'migrations');
-const CAMPOS_SEM_SENHA = ['createdAt', 'email', 'id', 'nome', 'updatedAt'];
+// SPEC-021 (RF-81): o usuário passou a ter isAdmin (desvio declarado)
+const CAMPOS_SEM_SENHA = ['createdAt', 'email', 'id', 'isAdmin', 'nome', 'updatedAt'];
 
 function criarBancoDescartavel(): string {
   const arquivo = path.join(
@@ -54,7 +55,7 @@ describe('SPEC-001: DELETE /usuarios/:id sem hash da senha', () => {
     });
 
     const autenticado = await prisma.usuarios.create({
-      data: { nome: 'Autenticado', email: 'auth@teste.com', senha: '$2b$10$hashqualquer' },
+      data: { nome: 'Autenticado', email: 'auth@teste.com', senha: '$2b$10$hashqualquer', isAdmin: true }, // SPEC-021: admin (RF-82)
     });
     // Usuário sem tarefa nem comentário: apagável (não cai no 409 da SPEC-002).
     const descartavel = await prisma.usuarios.create({
@@ -107,6 +108,7 @@ describe('SPEC-001: DELETE /usuarios/:id sem hash da senha', () => {
   it('CA-R3: POST /usuarios continua sem devolver senha', async () => {
     const res = await request(app.getHttpServer())
       .post('/usuarios')
+      .set('Authorization', `Bearer ${token}`) // SPEC-021: o cadastro exige admin (RF-82)
       .send({ nome: 'Novo', email: 'novo@teste.com', senha: '123456' });
     expect(res.status).toBe(201);
     expect(res.body).not.toHaveProperty('senha');

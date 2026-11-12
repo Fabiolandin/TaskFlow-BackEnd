@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
+import { configurarCors } from './cors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -20,7 +21,8 @@ async function bootstrap() {
     //configurando o allexceptions filter para capturar todas as exceções e retornar um formato padronizado de erro
     app.useGlobalFilters(new AllExceptionsFilter());
 
-  app.enableCors();
+  //só as origens do CORS_ORIGIN (RF-84)
+  configurarCors(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

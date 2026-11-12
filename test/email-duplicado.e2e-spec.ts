@@ -47,7 +47,7 @@ describe('Email duplicado responde 409', () => {
       adapter: new PrismaBetterSqlite3({ url: criarBancoDescartavel() }),
     });
     const autenticado = await prisma.usuarios.create({
-      data: { nome: 'Autenticado', email: 'auth@teste.com', senha: '$2b$10$hashqualquer' },
+      data: { nome: 'Autenticado', email: 'auth@teste.com', senha: '$2b$10$hashqualquer', isAdmin: true }, // SPEC-021: admin (RF-82)
     });
     const outro = await prisma.usuarios.create({
       data: { nome: 'Outro', email: 'outro@teste.com', senha: '$2b$10$hashqualquer' },
@@ -77,6 +77,7 @@ describe('Email duplicado responde 409', () => {
     const antes = await prisma.usuarios.count();
     const res = await request(app.getHttpServer())
       .post('/usuarios')
+      .set('Authorization', `Bearer ${token}`) // SPEC-021: o cadastro exige admin (RF-82)
       .send({ nome: 'Repetido', email: 'outro@teste.com', senha: '123456' });
     expect(res.status).toBe(409);
     expect(typeof res.body.message).toBe('string');
@@ -98,6 +99,7 @@ describe('Email duplicado responde 409', () => {
   it('não regride: POST /usuarios com email novo continua 201', async () => {
     const res = await request(app.getHttpServer())
       .post('/usuarios')
+      .set('Authorization', `Bearer ${token}`) // SPEC-021: o cadastro exige admin (RF-82)
       .send({ nome: 'Novo', email: 'novo@teste.com', senha: '123456' });
     expect(res.status).toBe(201);
   });

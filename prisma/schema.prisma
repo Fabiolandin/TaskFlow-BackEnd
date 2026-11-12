@@ -18,6 +18,8 @@ model Usuarios {
   tarefasResponsaveis Tarefas[]            @relation("TarefaResponsavel")
   comentariosTarefas  ComentariosTarefas[]
   atividadesTarefa    AtividadesTarefa[]
+  //papel de admin (RF-81, SPEC-021): só ele administra usuários
+  isAdmin             Boolean              @default(false)
 }
 
 model Projetos {

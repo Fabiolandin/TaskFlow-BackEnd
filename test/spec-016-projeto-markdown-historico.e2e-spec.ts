@@ -81,7 +81,7 @@ describe('SPEC-016: projeto, histórico e busca (API)', () => {
   beforeEach(async () => {
     prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: bancoDescartavel() }) });
     const usuario = async (nome: string) =>
-      (await prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto' } })).id;
+      (await prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin: true } })).id; // SPEC-021: admin (RF-82)
     ana = await usuario('Ana');
     bia = await usuario('Bia');
     caio = await usuario('Caio');
@@ -307,13 +307,14 @@ describe('SPEC-016: projeto, histórico e busca (API)', () => {
   });
 
   describe('CA-26: token de usuário excluído', () => {
-    it('PATCH que muda campo → 400, tarefa intacta, nenhuma atividade', async () => {
+    // SPEC-021 (RF-05 alterado): o usuário do token não existe mais → 401 no guard (era 400 pela FK; desvio declarado)
+    it('PATCH que muda campo → 401, tarefa intacta, nenhuma atividade', async () => {
       const t = await tarefa();
       const fantasma = (await prisma.usuarios.create({ data: { nome: 'Fantasma', email: 'f@teste.com', senha: 'hash-secreto' } })).id;
       const token = tokenDe(fantasma);
       await prisma.usuarios.delete({ where: { id: fantasma } });
       const res = await patch(`/tarefas/${t.id}`, { prioridade: 'Urgente' }, token);
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
       expect((await prisma.tarefas.findUnique({ where: { id: t.id } }))?.prioridade).toBe('Baixa');
       expect(await atividades(t.id)).toEqual([]);
     });

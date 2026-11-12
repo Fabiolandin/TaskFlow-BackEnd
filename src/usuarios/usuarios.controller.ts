@@ -4,20 +4,21 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Usuarios } from '@prisma/client';
-import { Public } from '../auth/public.decorator';
+import { UsuarioAtual, type UsuarioAutenticado } from '../auth/usuario-atual.decorator';
 
 @ApiTags('Usuarios')
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}
 
-  @Public()
+  //cadastro fechado: exige login e admin (RF-06, RF-82)
   @Post()
-  @ApiOperation({ summary: 'Criar um novo usiario' })
+  @ApiOperation({ summary: 'Criar um novo usuario (só admin)' })
   create(
-    @Body() createUsuarioDto: CreateUsuarioDto
+    @Body() createUsuarioDto: CreateUsuarioDto,
+    @UsuarioAtual() eu: UsuarioAutenticado,
   ): Promise<Omit<Usuarios, 'senha'>> {
-    return this.usuariosService.create(createUsuarioDto);
+    return this.usuariosService.create(createUsuarioDto, eu);
   }
 
   @Get()
@@ -32,12 +33,12 @@ export class UsuariosController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUsuarioDto: UpdateUsuarioDto) {
-    return this.usuariosService.update(+id, updateUsuarioDto);
+  update(@Param('id') id: string, @Body() updateUsuarioDto: UpdateUsuarioDto, @UsuarioAtual() eu: UsuarioAutenticado) {
+    return this.usuariosService.update(+id, updateUsuarioDto, eu);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usuariosService.remove(+id);
+  remove(@Param('id') id: string, @UsuarioAtual() eu: UsuarioAutenticado) {
+    return this.usuariosService.remove(+id, eu);
   }
 }

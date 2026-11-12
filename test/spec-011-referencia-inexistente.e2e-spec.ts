@@ -103,8 +103,10 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
     app.useGlobalFilters(new AllExceptionsFilter()); // como em src/main.ts
     await app.init();
 
+    // SPEC-021 (RF-82): só admin exclui ou cria usuário, e não a própria conta: o token é de um admin à parte (desvio declarado)
+    const admin = await prisma.usuarios.create({ data: { nome: 'Admin', email: 'admin-suite@teste.com', senha: 'x', isAdmin: true } });
     token = new JwtService({ secret: process.env.JWT_SECRET }).sign(
-      { sub: criador.id, email: criador.email },
+      { sub: admin.id, email: admin.email },
       { expiresIn: '1h' },
     );
   });
@@ -254,6 +256,7 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
   it('CA-R6: email duplicado em POST /usuarios continua 409 com message string', async () => {
     const res = await request(app.getHttpServer())
       .post('/usuarios')
+      .set('Authorization', `Bearer ${token}`) // SPEC-021: o cadastro exige admin (RF-82)
       .send({ nome: 'Repetido', email: 'fora@teste.com', senha: '123456' });
     esperaCorpo(res, 409);
     expect(res.body.message).toMatch(/email/i);

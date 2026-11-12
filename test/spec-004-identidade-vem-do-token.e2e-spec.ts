@@ -18,6 +18,7 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
 import Database from 'better-sqlite3';
 import request from 'supertest';
+import * as bcrypt from 'bcrypt';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -226,13 +227,15 @@ describe('SPEC-004: identidade vem do token', () => {
     expect(c.status).toBe(401);
   });
 
-  it('CA-R3: as duas rotas públicas continuam públicas', async () => {
+  // SPEC-021 (RF-06 alterado): o cadastro fechou; só o login segue público (desvio declarado)
+  it('CA-R3: o login segue público; o cadastro exige login', async () => {
     const cadastro = await post(
       '/usuarios',
       { nome: 'Novo', email: 'novo@teste.com', senha: 'segredo123' },
       null,
     );
-    expect(cadastro.status).toBe(201);
+    expect(cadastro.status).toBe(401);
+    await prisma.usuarios.create({ data: { nome: 'Novo', email: 'novo@teste.com', senha: await bcrypt.hash('segredo123', 10) } });
     const login = await post('/auth/login', { email: 'novo@teste.com', senha: 'segredo123' }, null);
     expect(login.status).toBe(201);
     expect(typeof login.body.access_token).toBe('string');

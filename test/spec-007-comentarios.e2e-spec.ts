@@ -56,7 +56,7 @@ describe('SPEC-007: comentários e Minhas Tarefas (API)', () => {
   beforeEach(async () => {
     prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: bancoDescartavel() }) });
     const usuario = (nome: string) =>
-      prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto' } });
+      prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin: true } }); // SPEC-021: admin (RF-82)
     ana = (await usuario('Ana')).id;
     bia = (await usuario('Bia')).id;
     caio = (await usuario('Caio')).id;

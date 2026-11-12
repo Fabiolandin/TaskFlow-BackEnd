@@ -44,6 +44,26 @@ $ npm run start:dev
 $ npm run start:prod
 ```
 
+## Administrador
+
+O cadastro é fechado: só um administrador cria usuários. Para dar o papel de administrador pelo
+servidor (primeiro admin, outra máquina ou recuperar o acesso), rode na pasta do backend:
+
+```bash
+# promove uma conta que já existe (pede o email de novo para confirmar)
+$ npm run admin -- email@exemplo.com
+
+# servidor novo, banco vazio: cria o admin (a senha é perguntada, escondida)
+$ npm run admin -- email@exemplo.com --criar --nome "Nome Completo"
+
+# depois do build, sem ts-node
+$ npm run admin:prod -- email@exemplo.com
+```
+
+Se já existir um administrador, o comando recusa e manda usar a tela de Usuários. Para passar mesmo
+assim, use `--forcar`. `--sim` pula a confirmação (não vale para `--criar`, que sempre pede a senha no
+terminal). A senha nunca vai na linha do comando.
+
 ## Run tests
 
 ```bash
