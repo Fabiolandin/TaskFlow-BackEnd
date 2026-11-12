@@ -80,10 +80,11 @@ describe('SPEC-016: projeto, histórico e busca (API)', () => {
 
   beforeEach(async () => {
     prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: bancoDescartavel() }) });
-    const usuario = async (nome: string) =>
-      (await prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin: true } })).id; // SPEC-021: admin (RF-82)
-    ana = await usuario('Ana');
-    bia = await usuario('Bia');
+    //SPEC-022 (CA-R2): admin só quem exclui usuário (RF-82): Ana (token padrão) e Bia (exclui a Ana); Caio é comum
+    const usuario = async (nome: string, isAdmin = false) =>
+      (await prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin } })).id;
+    ana = await usuario('Ana', true);
+    bia = await usuario('Bia', true);
     caio = await usuario('Caio');
     p1 = (await prisma.projetos.create({ data: { nome: 'P1', idStatus: 1 } })).id;
     p2 = (await prisma.projetos.create({ data: { nome: 'P2', idStatus: 1 } })).id;

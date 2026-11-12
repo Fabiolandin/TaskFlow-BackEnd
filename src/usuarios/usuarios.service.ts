@@ -4,6 +4,7 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { PrismaService } from 'src/database/prisma.service';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsuariosService {
@@ -24,7 +25,7 @@ export class UsuariosService {
       },
     });
 
-    const { senha, ...usuarioSemSenha } = usuario;
+    const { senha, senhaAlteradaEm, ...usuarioSemSenha } = usuario;
     return usuarioSemSenha;
   }
 
@@ -62,32 +63,41 @@ export class UsuariosService {
   }
 
   //RF-82: admin edita qualquer um; comum, só a própria conta e sem mexer no papel.
-  //RF-81: o último admin não perde o papel
+  //RF-91: o último admin não perde o papel, nem com pedidos ao mesmo tempo.
+  //RF-92/RF-93: trocar a senha grava a data (derruba os tokens); a própria senha pede a atual
   async update(id: number, updateUsuarioDto: UpdateUsuarioDto, eu: UsuarioAutenticado) {
     if (!eu.isAdmin && id !== eu.id) throw new ForbiddenException('Você só pode editar a própria conta');
     if (!eu.isAdmin && updateUsuarioDto.isAdmin !== undefined) throw new ForbiddenException('Apenas administradores podem alterar o papel');
-    const data = { ...updateUsuarioDto };
+    const { senhaAtual, ...data } = updateUsuarioDto;
+    const dados: Prisma.UsuariosUpdateInput = { ...data };
 
-    if (data.isAdmin === false) {
-      const alvo = await this.prisma.usuarios.findUnique({ where: { id }, select: { isAdmin: true } });
-      if (alvo?.isAdmin && (await this.prisma.usuarios.count({ where: { isAdmin: true } })) <= 1) {
-        throw new ConflictException('É preciso ter pelo menos um administrador');
+    if (data.senha !== undefined) {
+      if (id === eu.id) {
+        if (!senhaAtual) throw new BadRequestException('Informe a senha atual para trocar a senha');
+        const atual = await this.prisma.usuarios.findUnique({ where: { id }, select: { senha: true } });
+        if (!atual || !(await bcrypt.compare(senhaAtual, atual.senha))) throw new BadRequestException('Senha atual incorreta');
       }
+      dados.senha = bcrypt.hashSync(data.senha, 10);
+      dados.senhaAlteradaEm = new Date();
     }
 
-    // Verifica se a senha está presente no objeto de atualização e cria o hash se necessário
-    if (data.senha) {
-      data.senha = bcrypt.hashSync(data.senha, 10);
-    }
-
-    const usuario = await this.prisma.usuarios.update({
-      where: { id },
-      data,
+    //a contagem de admins é feita depois da gravação, na mesma transação: se zerou, desfaz
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      const gravado = await tx.usuarios.update({ where: { id }, data: dados });
+      if (data.isAdmin === false) await this.exigirUmAdmin(tx);
+      return gravado;
     });
 
-    //return de usuaruio sem a senha
-    const { senha, ...usuarioSemSenha } = usuario;
+    //sem a senha e sem a versão dela
+    const { senha, senhaAlteradaEm, ...usuarioSemSenha } = usuario;
     return usuarioSemSenha;
+  }
+
+  //RF-81/RF-91: chamada dentro da transação, depois da escrita que poderia tirar o último admin
+  private async exigirUmAdmin(tx: Prisma.TransactionClient) {
+    if ((await tx.usuarios.count({ where: { isAdmin: true } })) < 1) {
+      throw new ConflictException('É preciso ter pelo menos um administrador');
+    }
   }
 
   //RF-82: só admin exclui, e nunca a própria conta (assim sempre sobra um admin)
@@ -103,11 +113,14 @@ export class UsuariosService {
       );
     }
 
-    const usuario = await this.prisma.usuarios.delete({
-      where: { id },
+    //RF-91: excluir um admin não pode zerar os admins, nem com pedidos ao mesmo tempo
+    const usuario = await this.prisma.$transaction(async (tx) => {
+      const excluido = await tx.usuarios.delete({ where: { id } });
+      if (excluido.isAdmin) await this.exigirUmAdmin(tx);
+      return excluido;
     });
 
-    const { senha, ...usuarioSemSenha } = usuario;
+    const { senha, senhaAlteradaEm, ...usuarioSemSenha } = usuario;
     return usuarioSemSenha;
   }
 }

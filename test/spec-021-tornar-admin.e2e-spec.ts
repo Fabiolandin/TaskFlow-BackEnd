@@ -85,12 +85,13 @@ describe('SPEC-021 emenda 1.1: comando npm run admin', () => {
     expect((await admins()).sort()).toEqual(['ana@teste.com', 'bia@teste.com']);
   });
 
-  it('CA-30: email com espaços e maiúsculas acha o usuário; conta antiga sem formato válido também é promovida; criar com email inválido é recusado', async () => {
+  // SPEC-022 (RF-96 altera o RF-87): conta com email sem formato válido não é mais promovida (o login a recusaria)
+  it('CA-30: email com espaços e maiúsculas acha o usuário; email sem formato válido é recusado, ao promover e ao criar', async () => {
     await tornarAdmin(prisma, { email: '  ANA@Teste.com ', sim: true }, respostas().perguntar);
     expect(await admins()).toEqual(['ana@teste.com']);
     await prisma.usuarios.create({ data: { nome: 'Antigo', email: 'usuario1', senha } });
-    await tornarAdmin(prisma, { email: 'Usuario1', sim: true, forcar: true }, respostas().perguntar);
-    expect((await admins()).sort()).toEqual(['ana@teste.com', 'usuario1']);
+    await expect(tornarAdmin(prisma, { email: 'Usuario1', sim: true, forcar: true }, respostas().perguntar)).rejects.toThrow('Email inválido');
+    expect(await admins()).toEqual(['ana@teste.com']);
     await expect(tornarAdmin(prisma, { email: 'zeca', criar: true, nome: 'Zeca', forcar: true }, respostas('senha-forte-1', 'senha-forte-1').perguntar)).rejects.toThrow('Email inválido');
   });
 

@@ -105,7 +105,8 @@ describe('SPEC-021: segurança de acesso', () => {
       expect(outro.body.message).toBe('Você só pode editar a própria conta');
       expect((await prisma.usuarios.findUnique({ where: { id: admin.id } }))!.nome).toBe('Admin');
 
-      const proprio = await http(tokenComum).patch(`/usuarios/${comum.id}`, { nome: 'Comum 2', email: 'comum2@teste.com', senha: 'nova-senha' });
+      // SPEC-022 (RF-93 altera o RF-82): trocar a própria senha pede a senha atual
+      const proprio = await http(tokenComum).patch(`/usuarios/${comum.id}`, { nome: 'Comum 2', email: 'comum2@teste.com', senha: 'nova-senha', senhaAtual: 'senha-certa' });
       expect(proprio.status).toBe(200);
       expect(proprio.body.nome).toBe('Comum 2');
       expect((await login('comum2@teste.com', 'nova-senha')).status).toBe(201);

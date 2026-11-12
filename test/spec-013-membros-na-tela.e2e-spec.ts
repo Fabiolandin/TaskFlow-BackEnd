@@ -50,12 +50,13 @@ describe('SPEC-013: excluir usuário membro explica o motivo', () => {
   let p1: number;
   let p2: number;
 
-  const criarUsuario = (nome: string) =>
-    prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin: true } }); // SPEC-021: admin (RF-82)
+  //SPEC-022 (CA-R2): só a Ana, dona do token que exclui usuários, é admin (RF-82); os outros são comuns
+  const criarUsuario = (nome: string, isAdmin = false) =>
+    prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin } });
 
   beforeEach(async () => {
     prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: bancoDescartavel() }) });
-    ana = (await criarUsuario('Ana')).id;
+    ana = (await criarUsuario('Ana', true)).id;
     p1 = (await prisma.projetos.create({ data: { nome: 'P1', idStatus: 1 } })).id;
     p2 = (await prisma.projetos.create({ data: { nome: 'P2', idStatus: 1 } })).id;
 

@@ -17,7 +17,7 @@ export class UsuariosController {
   create(
     @Body() createUsuarioDto: CreateUsuarioDto,
     @UsuarioAtual() eu: UsuarioAutenticado,
-  ): Promise<Omit<Usuarios, 'senha'>> {
+  ): Promise<Omit<Usuarios, 'senha' | 'senhaAlteradaEm'>> {
     return this.usuariosService.create(createUsuarioDto, eu);
   }
 

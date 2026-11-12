@@ -1,4 +1,8 @@
 import 'reflect-metadata';
+import { config } from 'dotenv';
+import * as path from 'path';
+//o .env da pasta do backend: o mesmo DATABASE_URL da API (RF-95)
+config({ path: path.join(__dirname, '..', '..', '.env') });
 import * as readline from 'readline';
 import { PrismaService } from '../database/prisma.service';
 import { ErroAdmin, Perguntar, lerArgumentos, tornarAdmin } from './tornar-admin.logica';

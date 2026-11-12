@@ -55,11 +55,12 @@ describe('SPEC-007: comentários e Minhas Tarefas (API)', () => {
 
   beforeEach(async () => {
     prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: bancoDescartavel() }) });
-    const usuario = (nome: string) =>
-      prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin: true } }); // SPEC-021: admin (RF-82)
+    //SPEC-022 (CA-R2): só o Caio, que exclui usuário, é admin (RF-82); Ana e Bia comentam como usuárias comuns
+    const usuario = (nome: string, isAdmin = false) =>
+      prisma.usuarios.create({ data: { nome, email: `${nome.toLowerCase()}@teste.com`, senha: 'hash-secreto', isAdmin } });
     ana = (await usuario('Ana')).id;
     bia = (await usuario('Bia')).id;
-    caio = (await usuario('Caio')).id;
+    caio = (await usuario('Caio', true)).id;
     p1 = (await prisma.projetos.create({ data: { nome: 'P1', idStatus: 1 } })).id;
     p2 = (await prisma.projetos.create({ data: { nome: 'P2', idStatus: 1 } })).id;
     const tarefa = (nome: string, extra: object) =>

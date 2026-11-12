@@ -20,6 +20,8 @@ model Usuarios {
   atividadesTarefa    AtividadesTarefa[]
   //papel de admin (RF-81, SPEC-021): só ele administra usuários
   isAdmin             Boolean              @default(false)
+  //RF-92 (SPEC-022): quando a senha foi trocada pela última vez; vazio = nunca. O token carrega esse valor
+  senhaAlteradaEm     DateTime?
 }
 
 model Projetos {

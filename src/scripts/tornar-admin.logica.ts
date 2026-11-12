@@ -44,9 +44,9 @@ export function lerArgumentos(argv: string[]): OpcoesAdmin & { criar: boolean; f
 }
 
 export async function tornarAdmin(prisma: PrismaClient, op: OpcoesAdmin, perguntar: Perguntar): Promise<string> {
-  //para promover, vale o email como está gravado (há contas antigas sem formato válido, RF-83); para criar, precisa ser válido
+  //email válido sempre (RF-96): o login exige formato válido, então um admin com email inválido nunca entraria
   const email = normalizarEmail(op.email) as string;
-  if (op.criar && !isEmail(email)) throw new ErroAdmin(`Email inválido: "${op.email}".`);
+  if (!isEmail(email)) throw new ErroAdmin(`Email inválido: "${op.email}".`);
 
   //trava 1: com admin no banco, o caminho normal é a tela de Usuários; o comando é para o primeiro admin
   //ou para recuperar o acesso. Passar disso pede --forcar, de propósito
@@ -65,7 +65,7 @@ export async function tornarAdmin(prisma: PrismaClient, op: OpcoesAdmin, pergunt
     if (usuario) throw new ErroAdmin(`O email ${email} já existe. Para promover a conta que já existe, rode sem --criar.`);
     const nome = op.nome?.trim();
     if (!nome) throw new ErroAdmin(`Para criar, informe o nome: --nome "Nome Completo".`);
-    //trava 2: senha perguntada escondida, duas vezes, com tamanho mínimo
+    //trava 3: senha perguntada escondida, duas vezes, com tamanho mínimo
     const senha = await perguntar('Senha do novo administrador: ', true);
     if (senha.length < SENHA_MINIMA) throw new ErroAdmin(`A senha precisa de pelo menos ${SENHA_MINIMA} caracteres. Nada foi gravado.`);
     if ((await perguntar('Repita a senha: ', true)) !== senha) throw new ErroAdmin('As senhas não conferem. Nada foi gravado.');
@@ -83,7 +83,7 @@ export async function tornarAdmin(prisma: PrismaClient, op: OpcoesAdmin, pergunt
   return `Pronto: #${usuario.id} ${usuario.nome} <${usuario.email}> agora é administrador.`;
 }
 
-//trava 3: digitar o email de novo (um "s" ou um Enter por engano não promove ninguém); --sim pula, para automação
+//trava 2: digitar o email de novo (um "s" ou um Enter por engano não promove ninguém); --sim pula, para automação
 async function confirmar(op: OpcoesAdmin, email: string, aviso: string, perguntar: Perguntar) {
   if (op.sim) return;
   const resposta = await perguntar(`${aviso}\nPara confirmar, digite o email de novo: `);
