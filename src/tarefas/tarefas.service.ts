@@ -162,7 +162,7 @@ export class TarefasService {
   }
 
   async findAll(query: QueryTarefaDto) {
-    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai } = query
+    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai, raiz } = query
     const where: Prisma.TarefasWhereInput = {
       // RF-56: nome contém o texto; vazia equivale a sem busca
       ...(busca && { id: { in: await idsComNome(this.prisma, 'Tarefas', busca) } }),
@@ -170,7 +170,7 @@ export class TarefasService {
       idStatus,
       idUsuarioResponsavel,
       idUsuarioCriador,
-      idTarefaPai,
+      idTarefaPai: raiz ? null : idTarefaPai,
       ...(idLabel !== undefined && { labelsTarefas: { some: { idLabel } } }),
       ...(idUsuarioEnvolvido !== undefined && {
         OR: [{ idUsuarioResponsavel: idUsuarioEnvolvido }, { idUsuarioCriador: idUsuarioEnvolvido }],

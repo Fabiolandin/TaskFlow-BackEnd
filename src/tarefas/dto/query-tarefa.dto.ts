@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator'
 import { Transform, Type } from 'class-transformer'
 
 // RF-31: paginação e filtros de GET /tarefas. Tudo inteiro; valor inválido responde 400.
@@ -46,6 +46,12 @@ export class QueryTarefaDto {
     @Type(() => Number)
     @IsInt()
     idTarefaPai?: number
+
+    // só as tarefas raiz (sem tarefa-pai): a árvore da página do projeto. Aceita "true"/"false".
+    @IsOptional()
+    @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
+    @IsBoolean()
+    raiz?: boolean
 
     // RF-38: responsável OU criador; combina com E com os demais filtros.
     @IsOptional()
