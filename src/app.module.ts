@@ -9,13 +9,16 @@ import { StatusprojetoModule } from './statusprojeto/statusprojeto.module';
 import { StatustarefaModule } from './statustarefa/statustarefa.module';
 import { MembrosModule } from './membros/membros.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { CalendarioModule } from './calendario/calendario.module';
+import { SprintsModule } from './sprints/sprints.module';
+import { ApontamentosModule } from './apontamentos/apontamentos.module';
 import { APP_GUARD, APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from './validationSchemas/validation.pipe';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 @Module({
-  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule, ComentariostarefasModule, StatusprojetoModule, StatustarefaModule, MembrosModule, DashboardModule, AuthModule],
+  imports: [DatabaseModule, UsuariosModule, ProjetosModule, TarefasModule, LabelsModule, ComentariostarefasModule, StatusprojetoModule, StatustarefaModule, MembrosModule, DashboardModule, AuthModule, CalendarioModule, SprintsModule, ApontamentosModule],
   providers: [
     {
       provide: APP_PIPE,

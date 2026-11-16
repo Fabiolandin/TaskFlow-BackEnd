@@ -15,6 +15,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         //variaveis para mensagem default
         let status = 500;
         let message: string = 'Erro interno do servidor'
+        //SPEC-024: campos extras que a exceção declara de propósito em `detalhes` (ex.: emSprint no 409 da
+        //exclusão de tarefa); nada mais do corpo vaza
+        let detalhes: Record<string, unknown> = {}
 
         //HttpException é uma classe do proprio nest que contem os erros (400, 401, 403, 404, 409)
         //a message sai sempre como texto: corpo string, ou o campo message do corpo objeto (lista vira texto único) (SPEC-011)
@@ -25,6 +28,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
             message = typeof texto === 'string' ? texto
                 : Array.isArray(texto) ? texto.join('; ')
                 : exception.message;
+            const extra = typeof corpo === 'object' && corpo !== null ? (corpo as { detalhes?: unknown }).detalhes : undefined;
+            if (typeof extra === 'object' && extra !== null && !Array.isArray(extra)) detalhes = extra as Record<string, unknown>;
         }
 
         //PrismaClientKnownRequestError é uma classe do proprio prisma que contem os erros do banco
@@ -56,6 +61,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
         //monsta a mensagem e retorna
         response.status(status).json({
+            ...detalhes,
             statusCode: status,
             message,
         });

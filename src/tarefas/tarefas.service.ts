@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { CreateTarefaDto } from './dto/create-tarefa.dto';
 import { UpdateTarefaDto } from './dto/update-tarefa.dto';
@@ -6,6 +6,7 @@ import { QueryTarefaDto } from './dto/query-tarefa.dto';
 import { PrismaService } from 'src/database/prisma.service';
 import { SELECT_MEMBRO } from 'src/membros/membros.service';
 import { idsComNome } from 'src/database/busca';
+import { desligarApontamentos } from 'src/apontamentos/desligar';
 
 // RF-32: um só formato de tarefa nas 4 rotas. Usuário só com SELECT_MEMBRO: nunca `senha`.
 export const SELECT_TAREFA = {
@@ -27,6 +28,11 @@ export const SELECT_TAREFA = {
   tarefaPai: { select: { id: true, nome: true } },
   // RF-32: só o isFinal de cada sub-tarefa direta, para a contagem
   subtarefas: { select: { status: { select: { isFinal: true } } } },
+  // RF-108 (SPEC-024)
+  minutosEstimados: true,
+  minutosBuffer: true,
+  issueExterna: true,
+  solicitante: true,
   usuarioResponsavel: { select: SELECT_MEMBRO },
   usuarioCriador: { select: SELECT_MEMBRO },
   labelsTarefas: {
@@ -55,7 +61,7 @@ type Mudanca = Pick<Prisma.AtividadesTarefaCreateManyInput, 'campo' | 'valorAnte
 const dia = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
 // RF-53: compara antes × depois e devolve uma mudança por campo que de fato mudou (label: uma por label)
-function diferencas(antes: TarefaBruta, depois: TarefaBruta): Mudanca[] {
+export function diferencas(antes: TarefaBruta, depois: TarefaBruta): Mudanca[] {
   const lista: Mudanca[] = [];
   const comRegistro = (campo: string, a: { id: number; nome: string } | null, d: { id: number; nome: string } | null) => {
     if ((a?.id ?? null) !== (d?.id ?? null)) {
@@ -80,6 +86,14 @@ function diferencas(antes: TarefaBruta, depois: TarefaBruta): Mudanca[] {
   }
   for (const l of labelsAntes) {
     if (!labelsDepois.some((x) => x.id === l.id)) lista.push({ campo: 'label', valorAnterior: l.nome, valorNovo: null, idAnterior: l.id, idNovo: null });
+  }
+  // RF-53 alterado pela SPEC-024: refinamento, com o valor (minutos como texto)
+  const texto = (v: string | number | null) => (v === null ? null : String(v));
+  const refinamento = [['estimativa', 'minutosEstimados'], ['buffer', 'minutosBuffer'], ['issue', 'issueExterna'], ['solicitante', 'solicitante']] as const;
+  for (const [campo, chave] of refinamento) {
+    if (antes[chave] !== depois[chave]) {
+      lista.push({ campo, valorAnterior: texto(antes[chave]), valorNovo: texto(depois[chave]), idAnterior: null, idNovo: null });
+    }
   }
   // título e descrição: só registra que mudou (os quatro valores nulos)
   for (const campo of ['nome', 'descricao'] as const) {
@@ -162,7 +176,7 @@ export class TarefasService {
   }
 
   async findAll(query: QueryTarefaDto) {
-    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai, raiz } = query
+    const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai, raiz, foraDeSprint } = query
     const where: Prisma.TarefasWhereInput = {
       // RF-56: nome contém o texto; vazia equivale a sem busca
       ...(busca && { id: { in: await idsComNome(this.prisma, 'Tarefas', busca) } }),
@@ -174,6 +188,11 @@ export class TarefasService {
       ...(idLabel !== undefined && { labelsTarefas: { some: { idLabel } } }),
       ...(idUsuarioEnvolvido !== undefined && {
         OR: [{ idUsuarioResponsavel: idUsuarioEnvolvido }, { idUsuarioCriador: idUsuarioEnvolvido }],
+      }),
+      // RF-116 (SPEC-024): backlog
+      ...(foraDeSprint && {
+        status: { isFinal: false },
+        itensSprint: { none: { sprint: { status: { in: ['Planejamento', 'Ativa'] } } } },
       }),
     }
     const [total, tarefas] = await Promise.all([
@@ -197,12 +216,18 @@ export class TarefasService {
     return formatarTarefa(tarefa)
   }
 
-  update(id: number, updateTarefaDto: UpdateTarefaDto, idUsuario: number) {
+  update(id: number, updateTarefaDto: UpdateTarefaDto, idUsuario: number, isAdmin = false) {
     const { labelIds, ...dadosTarefa } = updateTarefaDto
 
     return this.prisma.$transaction(async (tx) => {
       // RF-53: o estado anterior, para comparar com a releitura do fim (D-3)
       const antes = await tx.tarefas.findUnique({ where: { id }, select: SELECT_TAREFA })
+
+      // RF-108 (SPEC-024): estimativa e buffer só pelo admin ou pelo responsável
+      if (antes && (dadosTarefa.minutosEstimados !== undefined || dadosTarefa.minutosBuffer !== undefined)
+        && !isAdmin && antes.idUsuarioResponsavel !== idUsuario) {
+        throw new ForbiddenException('Só o administrador ou o responsável podem estimar a tarefa')
+      }
 
       // RF-66: sub-tarefa, ou tarefa com sub-tarefas, não muda de projeto
       if (antes && dadosTarefa.idProjeto !== undefined && dadosTarefa.idProjeto !== antes.idProjeto
@@ -248,6 +273,16 @@ export class TarefasService {
       // RF-32: relê depois da substituição, para devolver as labels novas
       const tarefa = await tx.tarefas.findUniqueOrThrow({ where: { id }, select: SELECT_TAREFA })
 
+      // RF-121 (b) (SPEC-025): passar ao status de conclusão leva os itens abertos da tarefa a 100%
+      if (antes && antes.idStatus !== tarefa.idStatus) {
+        const conclusao = await tx.statusTarefa.findFirst({ where: { isFinal: true }, orderBy: [{ ordem: 'asc' }, { id: 'asc' }] })
+        if (conclusao && tarefa.idStatus === conclusao.id) {
+          const abertos = { idTarefa: id, evolucao: { lt: 100 }, sprint: { status: { in: ['Planejamento', 'Ativa'] } } }
+          await tx.itensSprint.updateMany({ where: { ...abertos, dataEntregaReal: null }, data: { dataEntregaReal: new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z') } })
+          await tx.itensSprint.updateMany({ where: abertos, data: { evolucao: 100 } })
+        }
+      }
+
       // RF-53: uma atividade por campo que mudou, na mesma transação; se não grava, nada grava
       // (token de usuário excluído: a FK do autor falha → P2003 → 400 e rollback)
       if (antes) {
@@ -289,8 +324,31 @@ export class TarefasService {
     return atividades.map(({ usuario, ...resto }) => ({ ...resto, autor: usuario }))
   }
 
-  async remove(id: number) {
+  // RF-15/RF-16 alterados pela SPEC-024: tarefa em sprint pede confirmação (removerDaSprint) e sai das sprints
+  async remove(id: number, removerDaSprint = false) {
     return this.prisma.$transaction(async (tx) => {
+      const itens = await tx.itensSprint.findMany({
+        where: { idTarefa: id },
+        select: { id: true, sprint: { select: { id: true, nome: true, status: true, dataInicio: true } } },
+      })
+      if (itens.length > 0) {
+        if (!removerDaSprint) {
+          const sprints = [...new Map(itens.map((i) => [i.sprint.id, i.sprint])).values()]
+            .sort((a, b) => a.dataInicio.getTime() - b.dataInicio.getTime())
+          const nomes = sprints.map((sp) => sp.nome).join(', ')
+          throw new HttpException({
+            message: (sprints.length === 1 ? 'Tarefa está na sprint ' : 'Tarefa está nas sprints ') + nomes,
+            detalhes: { emSprint: sprints.map((sp) => ({ id: sp.id, nome: sp.nome, status: sp.status })) },
+          }, HttpStatus.CONFLICT)
+        }
+        //RF-134 (SPEC-026): os apontamentos dos itens ficam sem item, com a observação
+        const nome = (await tx.tarefas.findUnique({ where: { id }, select: { nome: true } }))?.nome ?? null
+        await desligarApontamentos(tx, itens.map((i) => ({ id: i.id, nome })))
+        //quem veio do transbordo destes itens perde a ligação; depois os itens saem
+        await tx.itensSprint.updateMany({ where: { idItemOrigem: { in: itens.map((i) => i.id) } }, data: { idItemOrigem: null } })
+        await tx.itensSprint.deleteMany({ where: { idTarefa: id } })
+      }
+
       // RF-66: a sub-tarefa impede excluir a pai (RF-16)
       const filhas = await tx.tarefas.count({ where: { idTarefaPai: id } })
       if (filhas > 0) {

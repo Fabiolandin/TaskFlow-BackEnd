@@ -20,6 +20,10 @@ model Usuarios {
   atividadesTarefa    AtividadesTarefa[]
   //papel de admin (RF-81, SPEC-021): só ele administra usuários
   isAdmin             Boolean              @default(false)
+  jornadas            Jornadas[]
+  ausencias           Ausencias[]
+  itensSprint         ItensSprint[]
+  apontamentos        Apontamentos[]
   //RF-92 (SPEC-022): quando a senha foi trocada pela última vez; vazio = nunca. O token carrega esse valor
   senhaAlteradaEm     DateTime?
 }
@@ -73,6 +77,12 @@ model Tarefas {
   idTarefaPai          Int?
   tarefaPai            Tarefas?             @relation("SubTarefas", fields: [idTarefaPai], references: [id], onDelete: Restrict)
   subtarefas           Tarefas[]            @relation("SubTarefas")
+  // SPEC-024 (RF-108): refinamento, todos opcionais; horas em minutos inteiros
+  minutosEstimados     Int?
+  minutosBuffer        Int?
+  issueExterna         String?
+  solicitante          String?
+  itensSprint          ItensSprint[]
 
   @@index([idTarefaPai])
 }
@@ -148,4 +158,113 @@ model AtividadesTarefa {
   createdAt     DateTime  @default(now())
 
   @@index([idTarefa, createdAt])
+}
+
+// SPEC-023 (RF-101): jornada por dev, com vigência; minutos por dia da semana (0..1440)
+model Jornadas {
+  id        Int      @id @default(autoincrement())
+  idUsuario Int
+  usuario   Usuarios @relation(fields: [idUsuario], references: [id], onDelete: Restrict)
+  vigencia  DateTime
+  seg       Int
+  ter       Int
+  qua       Int
+  qui       Int
+  sex       Int
+  sab       Int
+  dom       Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([idUsuario, vigencia])
+}
+
+// SPEC-023 (RF-102): feriado do time; minutosDescontados null = dia inteiro
+model Feriados {
+  id                 Int      @id @default(autoincrement())
+  data               DateTime @unique
+  nome               String
+  minutosDescontados Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// SPEC-023 (RF-104): ausência por dev; minutosPorDia null = dia inteiro
+model Ausencias {
+  id            Int      @id @default(autoincrement())
+  idUsuario     Int
+  usuario       Usuarios @relation(fields: [idUsuario], references: [id], onDelete: Restrict)
+  tipo          String
+  dataInicio    DateTime
+  dataFim       DateTime
+  minutosPorDia Int?
+  observacao    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([idUsuario, dataInicio])
+}
+
+// SPEC-024 (RF-109): sprint do time; status Planejamento | Ativa | Fechada
+model Sprints {
+  id         Int           @id @default(autoincrement())
+  nome       String
+  dataInicio DateTime
+  dataFim    DateTime
+  status     String        @default("Planejamento")
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  itens      ItensSprint[]
+}
+
+// SPEC-024 (RF-110): uma linha na fila de um dev; de tarefa (idTarefa) ou avulsa (nome + minutosAvulsos).
+// evolucao, bloqueio, observacao e dataEntregaReal são da SPEC-025 (criados aqui, D-8)
+model ItensSprint {
+  id                     Int           @id @default(autoincrement())
+  idSprint               Int
+  sprint                 Sprints       @relation(fields: [idSprint], references: [id], onDelete: Cascade)
+  idTarefa               Int?
+  tarefa                 Tarefas?      @relation(fields: [idTarefa], references: [id], onDelete: Restrict)
+  nome                   String?
+  minutosAvulsos         Int?
+  recorrente             Boolean       @default(false)
+  idUsuario              Int
+  usuario                Usuarios      @relation(fields: [idUsuario], references: [id], onDelete: Restrict)
+  ordem                  Int
+  naoPrevista            Boolean       @default(false)
+  inicioPrevisto         DateTime?
+  entregaPrevista        DateTime?
+  minutosPlanejadosFixos Int?
+  idItemOrigem           Int?
+  itemOrigem             ItensSprint?  @relation("Transbordo", fields: [idItemOrigem], references: [id], onDelete: SetNull)
+  derivados              ItensSprint[] @relation("Transbordo")
+  apontamentos           Apontamentos[]
+  evolucao               Int           @default(0)
+  bloqueio               String?
+  observacao             String?
+  dataEntregaReal        DateTime?
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+
+  @@index([idSprint, idUsuario, ordem])
+  @@index([idTarefa])
+}
+
+// SPEC-026 (RF-128): apontamento de horas; início e fim em minutos do dia; item opcional (sem item exige observação)
+model Apontamentos {
+  id           Int          @id @default(autoincrement())
+  idUsuario    Int
+  usuario      Usuarios     @relation(fields: [idUsuario], references: [id], onDelete: Restrict)
+  data         DateTime
+  inicioMin    Int
+  fimMin       Int
+  idItemSprint Int?
+  item         ItensSprint? @relation(fields: [idItemSprint], references: [id], onDelete: SetNull)
+  observacao   String?
+  foraDaSprint Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([idUsuario, data])
+  @@index([idItemSprint])
 }

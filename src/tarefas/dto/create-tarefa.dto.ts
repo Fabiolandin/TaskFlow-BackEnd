@@ -1,4 +1,4 @@
-import { ArrayUnique, IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString } from "class-validator"
+import { ArrayUnique, IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator"
 import { Type } from "class-transformer"
 
 // RF-22: conjunto fixo, não cadastro.
@@ -51,4 +51,27 @@ export class CreateTarefaDto {
     @IsInt({ each: true })
     @ArrayUnique()
     labelIds?: number[]
+
+    // RF-108 (SPEC-024): refinamento, todos opcionais; horas em minutos inteiros; null limpa
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    @Max(100000)
+    minutosEstimados?: number | null
+
+    @IsOptional()
+    @IsInt()
+    @Min(0)
+    @Max(100000)
+    minutosBuffer?: number | null
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(50)
+    issueExterna?: string | null
+
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    solicitante?: string | null
 }

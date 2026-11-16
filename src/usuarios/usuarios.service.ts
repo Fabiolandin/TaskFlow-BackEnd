@@ -113,6 +113,19 @@ export class UsuariosService {
       );
     }
 
+    //RF-16 (SPEC-023): quem tem jornada ou ausência está em uso pelo calendário
+    const [jornadas, ausencias] = await Promise.all([
+      this.prisma.jornadas.count({ where: { idUsuario: id } }),
+      this.prisma.ausencias.count({ where: { idUsuario: id } }),
+    ]);
+    if (jornadas + ausencias > 0) {
+      throw new HttpException('Usuário em uso: tem jornada ou ausência cadastrada', HttpStatus.CONFLICT);
+    }
+    //RF-16 (SPEC-026)
+    if ((await this.prisma.apontamentos.count({ where: { idUsuario: id } })) > 0) {
+      throw new HttpException('Usuário em uso: tem apontamentos', HttpStatus.CONFLICT);
+    }
+
     //RF-91: excluir um admin não pode zerar os admins, nem com pedidos ao mesmo tempo
     const usuario = await this.prisma.$transaction(async (tx) => {
       const excluido = await tx.usuarios.delete({ where: { id } });

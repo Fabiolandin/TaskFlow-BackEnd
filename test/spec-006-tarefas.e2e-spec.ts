@@ -250,6 +250,11 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
         'idTarefaPai',
         'tarefaPai',
         'subtarefas',
+        // SPEC-024 alterou o RF-32: campos de refinamento (RF-108)
+        'minutosEstimados',
+        'minutosBuffer',
+        'issueExterna',
+        'solicitante',
       ].sort(),
     );
     expect(Object.keys(t.status).sort()).toEqual(['cor', 'id', 'isFinal', 'nome']);

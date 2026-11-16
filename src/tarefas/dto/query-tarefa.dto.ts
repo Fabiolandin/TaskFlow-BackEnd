@@ -53,6 +53,12 @@ export class QueryTarefaDto {
     @IsBoolean()
     raiz?: boolean
 
+    // RF-116 (SPEC-024): backlog = não concluídas e fora de sprint Planejamento/Ativa
+    @IsOptional()
+    @Transform(({ value }) => (value === 'true' ? true : value === 'false' ? false : value))
+    @IsBoolean()
+    foraDeSprint?: boolean
+
     // RF-38: responsável OU criador; combina com E com os demais filtros.
     @IsOptional()
     @Type(() => Number)

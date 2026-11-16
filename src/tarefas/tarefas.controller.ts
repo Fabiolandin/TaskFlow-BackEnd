@@ -48,12 +48,13 @@ export class TarefasController {
     @UsuarioAtual() usuario: UsuarioAutenticado
   ) {
     // RF-08/RF-53: o autor da atividade é o usuário do token
-    return this.tarefasService.update(+id, updateTarefaDto, usuario.id);
+    return this.tarefasService.update(+id, updateTarefaDto, usuario.id, usuario.isAdmin);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Deletar uma tarefa por ID' })
-  remove(@Param('id') id: string) {
-    return this.tarefasService.remove(+id);
+  remove(@Param('id') id: string, @Query('removerDaSprint') removerDaSprint?: string) {
+    // RF-15/RF-16 (SPEC-024): ?removerDaSprint=true confirma a exclusão de tarefa que está em sprint
+    return this.tarefasService.remove(+id, removerDaSprint === 'true');
   }
 }
