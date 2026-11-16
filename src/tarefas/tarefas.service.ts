@@ -7,6 +7,7 @@ import { PrismaService } from 'src/database/prisma.service';
 import { SELECT_MEMBRO } from 'src/membros/membros.service';
 import { idsComNome } from 'src/database/busca';
 import { desligarApontamentos } from 'src/apontamentos/desligar';
+import { anexarTrilhas, type Ancestral } from './trilha';
 
 // RF-32: um só formato de tarefa nas 4 rotas. Usuário só com SELECT_MEMBRO: nunca `senha`.
 export const SELECT_TAREFA = {
@@ -52,6 +53,8 @@ export function formatarTarefa(tarefa: TarefaBruta) {
     responsavel: usuarioResponsavel,
     criador: usuarioCriador,
     labels: labelsTarefas.map((v) => v.label),
+    //caminho da raiz até a mãe direta; vazio até alguém chamar anexarTrilhas (backlog, fila, cronograma)
+    ancestrais: [] as Ancestral[],
   };
 }
 
@@ -205,7 +208,10 @@ export class TarefasService {
         take: limit,
       }),
     ])
-    return { data: tarefas.map(formatarTarefa), total, page, totalPages: Math.ceil(total / limit) }
+    const data = tarefas.map(formatarTarefa)
+    //backlog da sprint mostra a árvore por tema
+    if (foraDeSprint) await anexarTrilhas(this.prisma, data)
+    return { data, total, page, totalPages: Math.ceil(total / limit) }
   }
 
   async findOne(id: number) {

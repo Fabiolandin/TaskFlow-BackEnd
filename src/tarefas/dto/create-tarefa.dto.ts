@@ -1,5 +1,6 @@
-import { ArrayUnique, IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator"
+import { ArrayUnique, IsArray, IsDate, IsIn, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, MaxLength, Min, MaxDate, MinDate } from "class-validator"
 import { Type } from "class-transformer"
+import { DATA_MAX, DATA_MIN } from "../../calendario/dto/data-pura"
 
 // RF-22: conjunto fixo, não cadastro.
 export const PRIORIDADES = ['Baixa', 'Média', 'Alta', 'Urgente'] as const
@@ -25,11 +26,15 @@ export class CreateTarefaDto {
     @IsOptional()
     @Type(() => Date)
     @IsDate()
+    @MinDate(DATA_MIN, { message: 'data deve ser a partir de 2000' })
+    @MaxDate(DATA_MAX, { message: 'data deve ser até 2099' })
     data_inicio?: Date
 
     @IsOptional()
     @Type(() => Date)
     @IsDate()
+    @MinDate(DATA_MIN, { message: 'data deve ser a partir de 2000' })
+    @MaxDate(DATA_MAX, { message: 'data deve ser até 2099' })
     data_final?: Date
 
     @IsOptional()

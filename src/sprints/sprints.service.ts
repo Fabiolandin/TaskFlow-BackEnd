@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from 'src/database/prisma.service';
 import { SELECT_MEMBRO } from 'src/membros/membros.service';
 import { SELECT_TAREFA, diferencas, formatarTarefa } from 'src/tarefas/tarefas.service';
+import { anexarTrilhas } from 'src/tarefas/trilha';
 import type { UsuarioAutenticado } from '../auth/usuario-atual.decorator';
 import { CalendarioService } from '../calendario/calendario.service';
 import { capacidadeDosDias, capacidadeTotal, paraData, paraTexto } from '../calendario/capacidade.logica';
@@ -376,6 +377,7 @@ export class SprintsService {
         }),
       };
     }));
+    await anexarTrilhas(this.prisma, devs.flatMap((d) => d.itens.flatMap((i) => (i.tarefa ? [i.tarefa] : []))));
     return { sprint, proxima: destino, devs };
   }
 
@@ -483,6 +485,7 @@ export class SprintsService {
       });
     }));
     const linhas = porDev0.flat();
+    await anexarTrilhas(this.prisma, linhas.flatMap((l) => (l.tarefa ? [l.tarefa] : [])));
 
     const filtradas = linhas.filter((l) => (idUsuario === undefined || l.usuario.id === idUsuario) && (idProjeto === undefined || l.projeto?.id === idProjeto));
     const porDev = [...new Map(filtradas.map((l) => [l.usuario.id, l.usuario])).values()].map((usuario) => ({
