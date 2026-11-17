@@ -206,8 +206,10 @@ export class SprintsService {
       const alvo = await this.prisma.tarefas.findUniqueOrThrow({ where: { id: dto.idTarefa }, select: { _count: { select: { subtarefas: true } } } });
       //RF-140 (SPEC-028): só folhas entram na sprint; a tarefa mãe é para organizar
       if (alvo._count.subtarefas > 0) throw new BadRequestException('Tarefa com sub-tarefas não entra na sprint: planeje as sub-tarefas');
-      const repetida = await this.prisma.itensSprint.count({ where: { idSprint, idTarefa: dto.idTarefa } });
-      if (repetida > 0) throw new HttpException('A tarefa já está nesta sprint', HttpStatus.CONFLICT);
+      const ja = await this.situacaoNaSprint(this.prisma, idSprint, dto.idTarefa!);
+      if (ja?.tipo === 'mesma') throw new HttpException('A tarefa já está nesta sprint', HttpStatus.CONFLICT);
+      //a mãe entrou quando ainda não tinha filhas (RF-140): a filha não entra junto
+      if (ja) throw new HttpException(`A tarefa mãe ${ja.item.tarefa?.nome} já está nesta sprint`, HttpStatus.CONFLICT);
     }
 
     const resultado = await this.prisma.$transaction(async (tx) => {
@@ -331,6 +333,30 @@ export class SprintsService {
   private async proximaSprint(db: Tx | PrismaService, sprint: SprintBruta) {
     const existente = await db.sprints.findFirst({ where: { status: 'Planejamento', dataInicio: { gt: sprint.dataFim } }, orderBy: { dataInicio: 'asc' } });
     return existente ?? null;
+  }
+
+  //SPEC-028: mães (até a raiz) e descendentes da tarefa; mãe e filha na mesma sprint contariam as horas duas vezes
+  private async parentes(db: Tx | PrismaService, idTarefa: number) {
+    const ids = new Set<number>();
+    let atual = (await db.tarefas.findUnique({ where: { id: idTarefa }, select: { idTarefaPai: true } }))?.idTarefaPai ?? null;
+    while (atual !== null && !ids.has(atual)) {
+      ids.add(atual);
+      atual = (await db.tarefas.findUnique({ where: { id: atual }, select: { idTarefaPai: true } }))?.idTarefaPai ?? null;
+    }
+    let nivel = [idTarefa];
+    for (let i = 0; nivel.length && i < 20; i++) {
+      nivel = (await db.tarefas.findMany({ where: { idTarefaPai: { in: nivel } }, select: { id: true } })).map((t) => t.id).filter((id) => !ids.has(id));
+      nivel.forEach((id) => ids.add(id));
+    }
+    return [...ids];
+  }
+
+  //o item da mesma tarefa, ou de uma mãe/filha dela, que já está na sprint (para mover/transbordar sem duplicar)
+  private async situacaoNaSprint(db: Tx | PrismaService, idSprint: number, idTarefa: number) {
+    const mesma = await db.itensSprint.findFirst({ where: { idSprint, idTarefa } });
+    if (mesma) return { tipo: 'mesma' as const, item: mesma };
+    const parente = await db.itensSprint.findFirst({ where: { idSprint, idTarefa: { in: await this.parentes(db, idTarefa) } }, include: { tarefa: { select: { nome: true } } } });
+    return parente ? { tipo: 'parente' as const, item: parente } : null;
   }
 
   async planejamento(idSprint: number) {
@@ -520,11 +546,12 @@ export class SprintsService {
     const novaFim = somarDias(novaInicio, Math.round((paraData(fim).getTime() - paraData(inicio).getTime()) / UM_DIA));
     if (transbordam.length && !existente) await this.semSobreposicao(this.prisma, novaInicio, novaFim);
     if (existente) {
-      const conflito = await this.prisma.itensSprint.findFirst({
-        where: { idSprint: existente.id, idTarefa: { in: transbordam.map((i) => i.idTarefa).filter((x): x is number => x !== null) } },
-        include: { tarefa: { select: { nome: true } } },
-      });
-      if (conflito) throw new HttpException(`A tarefa ${conflito.tarefa?.nome} já está na sprint ${existente.nome}`, HttpStatus.CONFLICT);
+      for (const i of transbordam) {
+        if (i.idTarefa === null) continue;
+        const ja = await this.situacaoNaSprint(this.prisma, existente.id, i.idTarefa);
+        if (ja?.tipo === 'mesma') throw new HttpException(`A tarefa ${i.tarefa?.nome} já está na sprint ${existente.nome}`, HttpStatus.CONFLICT);
+        if (ja) throw new HttpException(`A tarefa ${i.tarefa?.nome} transbordaria para a sprint ${existente.nome}, onde já está ${ja.item.tarefa?.nome} (mãe ou sub-tarefa dela)`, HttpStatus.CONFLICT);
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -586,12 +613,20 @@ export class SprintsService {
     const sprint = await this.prisma.sprints.findUniqueOrThrow({ where: { id } });
     const proxima = await this.proximaSprint(this.prisma, sprint);
     const itens = await this.naoConcluidas(id);
+    const linhas = await Promise.all(itens.map(async (i) => {
+      //SPEC-028: "mesma" = a tarefa já está na próxima (ex.: transbordou em parte), as restantes somam lá;
+      //"parente" = mãe ou sub-tarefa dela já está na próxima, só dá para devolver ao backlog
+      const ja = proxima ? await this.situacaoNaSprint(this.prisma, proxima.id, i.idTarefa!) : null;
+      return {
+        id: i.id, tarefa: formatarTarefa(i.tarefa!), usuario: i.usuario, evolucao: i.evolucao, restantes: restantesDoItem(planejadasDo(i), i.evolucao),
+        naProxima: ja?.tipo ?? null,
+      };
+    }));
+    await anexarTrilhas(this.prisma, linhas.map((l) => l.tarefa));
     return {
       sprint,
       proxima: proxima ? { id: proxima.id, nome: proxima.nome } : { id: null, nome: proximoNome(sprint.nome) },
-      itens: itens.map((i) => ({
-        id: i.id, tarefa: formatarTarefa(i.tarefa!), usuario: i.usuario, evolucao: i.evolucao, restantes: restantesDoItem(planejadasDo(i), i.evolucao),
-      })),
+      itens: linhas,
     };
   }
 
@@ -619,14 +654,19 @@ export class SprintsService {
       throw new BadRequestException('Escolha o destino de todas as tarefas não concluídas');
     }
     const mover = pendentes.filter((p) => escolhidos.get(p.id) === 'proxima');
+    //SPEC-028: tarefa que já está na próxima recebe as horas restantes no item de lá (não duplica);
+    //mãe ou sub-tarefa dela já lá → só pode voltar ao backlog
+    const somarEm = new Map<number, number>();
     if (mover.length) {
       const existente = await this.proximaSprint(this.prisma, sprint);
       if (existente) {
-        const conflito = await this.prisma.itensSprint.findFirst({
-          where: { idSprint: existente.id, idTarefa: { in: mover.map((m) => m.idTarefa!) } },
-          include: { tarefa: { select: { nome: true } } },
-        });
-        if (conflito) throw new HttpException(`A tarefa ${conflito.tarefa?.nome} já está na sprint ${existente.nome}`, HttpStatus.CONFLICT);
+        for (const m of mover) {
+          const ja = await this.situacaoNaSprint(this.prisma, existente.id, m.idTarefa!);
+          if (ja?.tipo === 'parente') {
+            throw new HttpException(`A tarefa ${m.tarefa?.nome} não pode ir para a sprint ${existente.nome}, onde já está ${ja.item.tarefa?.nome} (mãe ou sub-tarefa dela): devolva ao backlog`, HttpStatus.CONFLICT);
+          }
+          if (ja) somarEm.set(m.id, ja.item.id);
+        }
       }
     }
 
@@ -640,8 +680,16 @@ export class SprintsService {
           const jaLa = await this.idsDaFila(tx, destino.id, dev);
           const novos: number[] = [];
           for (const m of mover.filter((x) => x.idUsuario === dev)) {
+            const restantes = restantesDoItem(planejadasDo(m), m.evolucao);
+            const alvo = somarEm.get(m.id);
+            if (alvo !== undefined) {
+              //horas fixas (transbordo, carry-over) somam; item que acompanha a estimativa da tarefa já conta tudo
+              const la = await tx.itensSprint.findUniqueOrThrow({ where: { id: alvo } });
+              if (la.minutosPlanejadosFixos !== null) await tx.itensSprint.update({ where: { id: alvo }, data: { minutosPlanejadosFixos: la.minutosPlanejadosFixos + restantes } });
+              continue;
+            }
             const novo = await tx.itensSprint.create({
-              data: { idSprint: destino.id, idUsuario: dev, idTarefa: m.idTarefa, ordem: 0, minutosPlanejadosFixos: restantesDoItem(planejadasDo(m), m.evolucao), idItemOrigem: m.id },
+              data: { idSprint: destino.id, idUsuario: dev, idTarefa: m.idTarefa, ordem: 0, minutosPlanejadosFixos: restantes, idItemOrigem: m.id },
             });
             novos.push(novo.id);
           }

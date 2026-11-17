@@ -133,6 +133,36 @@ describe('SPEC-028: tarefa mãe fora da sprint', () => {
 
     await http().patch(`/tarefas/${b.id}`, { idStatus: cancelado });
     expect(await itemDoCronograma(s.id, ib)).toMatchObject({ evolucao: 100 });
+    // CA-07: passar por Cancelado não escapa: sair de qualquer status final reabre
+    await http().patch(`/tarefas/${b.id}`, { idStatus: aberto });
+    expect(await itemDoCronograma(s.id, ib)).toMatchObject({ evolucao: 0, dataEntregaReal: null });
+  });
+
+  it('CA-08: filha não entra na sprint onde a mãe (que ganhou filhas depois) já está', async () => {
+    const s = await sprint();
+    const forro = await tarefa('Forro');
+    await http().post(`/sprints/${s.id}/itens`, { idTarefa: forro.id, idUsuario: dev });
+    const tozel = await tarefa('Tozel', forro.id);
+    const r = await http().post(`/sprints/${s.id}/itens`, { idTarefa: tozel.id, idUsuario: dev });
+    expect(r.status).toBe(409);
+    expect(r.body.message).toBe('A tarefa mãe Forro já está nesta sprint');
+  });
+
+  it('CA-09: fechar não leva a mãe para a sprint onde a filha já está; a prévia avisa', async () => {
+    const s1 = await sprint();
+    const s2 = (await http().post('/sprints', { nome: 'Sprint 2', dataInicio: '2027-03-11', dataFim: '2027-03-20' })).body as { id: number };
+    const forro = await tarefa('Forro');
+    const item = (await http().post(`/sprints/${s1.id}/itens`, { idTarefa: forro.id, idUsuario: dev })).body.id as number;
+    await http().post(`/sprints/${s1.id}/ativar`);
+    const tozel = await tarefa('Tozel', forro.id);
+    expect((await http().post(`/sprints/${s2.id}/itens`, { idTarefa: tozel.id, idUsuario: dev })).status).toBe(201);
+    const previa = (await http().get(`/sprints/${s1.id}/fechamento`)).body.itens as { id: number; naProxima: string | null }[];
+    expect(previa.find((i) => i.id === item)!.naProxima).toBe('parente');
+    const r = await http().post(`/sprints/${s1.id}/fechar`, { itens: [{ id: item, destino: 'proxima' }] });
+    expect(r.status).toBe(409);
+    expect(r.body.message).toBe('A tarefa Forro não pode ir para a sprint Sprint 2, onde já está Tozel (mãe ou sub-tarefa dela): devolva ao backlog');
+    expect((await http().post(`/sprints/${s1.id}/fechar`, { itens: [{ id: item, destino: 'backlog' }] })).status).toBe(201);
+    expect(await prisma.itensSprint.count({ where: { idSprint: s2.id, idTarefa: forro.id } })).toBe(0);
   });
 
   it('CA-06: itens apontáveis trazem a trilha das mães e o projeto', async () => {

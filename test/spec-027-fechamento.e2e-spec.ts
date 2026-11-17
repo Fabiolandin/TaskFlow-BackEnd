@@ -156,13 +156,18 @@ describe('SPEC-027: fechamento da sprint', () => {
     expect(fila.map((i) => i.tarefa?.nome ?? i.nome)).toEqual(['B', 'Reuniões']);
   });
 
-  it('CA-08: tarefa que já está na próxima → 409 e nada muda', async () => {
+  // CA-08 alterado pela SPEC-028: antes 409; agora a tarefa já na próxima não duplica e as restantes somam lá
+  it('CA-08: tarefa que já está na próxima → fecha sem duplicar; horas fixas recebem as restantes', async () => {
     const s2 = (await http().post('/sprints', { nome: 'Sprint 2', dataInicio: '2027-03-06', dataFim: '2027-03-10' })).body.id;
-    await http().post(`/sprints/${s2}/itens`, { idTarefa: tarefaB, idUsuario: dev });
+    const la = (await http().post(`/sprints/${s2}/itens`, { idTarefa: tarefaB, idUsuario: dev })).body.id as number;
+    const previa = (await http().get(`/sprints/${s1}/fechamento`)).body.itens as { id: number; naProxima: string | null }[];
+    expect(previa.find((i) => i.id === itemB)!.naProxima).toBe('mesma');
+    await prisma.itensSprint.update({ where: { id: la }, data: { minutosPlanejadosFixos: 120 } });
     const r = await fechar(padrao());
-    expect(r.status).toBe(409);
-    expect(r.body.message).toBe('A tarefa B já está na sprint Sprint 2');
-    expect((await prisma.sprints.findUniqueOrThrow({ where: { id: s1 } })).status).toBe('Ativa');
+    expect(r.status).toBe(201);
+    const itens = await prisma.itensSprint.findMany({ where: { idSprint: s2, idTarefa: tarefaB } });
+    expect(itens).toHaveLength(1);
+    expect(itens[0].minutosPlanejadosFixos).toBe(120 + 360);
   });
 
   it('CA-09: sprint fechada é somente leitura', async () => {
