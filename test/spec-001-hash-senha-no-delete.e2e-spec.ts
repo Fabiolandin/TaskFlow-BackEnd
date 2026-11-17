@@ -140,6 +140,6 @@ describe('SPEC-001: DELETE /usuarios/:id sem hash da senha', () => {
   it('CA-R4: apagar usuário inexistente continua respondendo 404', async () => {
     const res = await autenticada('delete', '/usuarios/9999');
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ statusCode: 404, message: 'Registro não encontrado' });
+    expect(res.body).toEqual({ statusCode: 404, message: 'Usuário não encontrado' });
   });
 });

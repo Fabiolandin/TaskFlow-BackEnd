@@ -51,6 +51,14 @@ const UM_DIA = 24 * 60 * 60 * 1000;
 export const paraData = (texto: string): Date => new Date(`${texto}T00:00:00.000Z`);
 export const paraTexto = (data: Date): string => data.toISOString().slice(0, 10);
 
+//"hoje" = dia do relógio local do servidor (RF-148), não o dia UTC: com toISOString, depois das 21h em Brasília
+//já seria amanhã. Gravado como data pura à meia-noite UTC (paraData), como as demais (ponto 29 do tecnico.md)
+export const hojeLocal = (): string => {
+  const d = new Date();
+  const dois = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}`;
+};
+
 //data AAAA-MM-DD que existe no calendário (2026-02-30 não passa)
 export const dataValida = (texto: unknown): texto is string =>
   typeof texto === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(texto) && !Number.isNaN(paraData(texto).getTime()) && paraTexto(paraData(texto)) === texto;

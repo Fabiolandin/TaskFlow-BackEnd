@@ -181,10 +181,10 @@ describe('SPEC-002: apagar registro em uso', () => {
     expect(await prisma.comentariosTarefas.count({ where: { idTarefa: ids.tarefa } })).toBe(0);
   });
 
-  it('CA-R3: P2025 continua respondendo 404 Registro não encontrado', async () => {
+  it('CA-R3: P2025 continua respondendo 404 (Label não encontrada)', async () => {
     const res = await del('/labels/9999');
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ statusCode: 404, message: 'Registro não encontrado' });
+    expect(res.body).toEqual({ statusCode: 404, message: 'Label não encontrada' });
   });
 
   it('CA-R4: HttpException (validação) continua no formato { statusCode, message }', async () => {

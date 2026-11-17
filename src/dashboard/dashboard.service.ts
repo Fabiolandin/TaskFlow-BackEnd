@@ -1,12 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/database/prisma.service';
+import { hojeLocal } from 'src/calendario/capacidade.logica';
 
-/** Dia do relógio do servidor, em horário local, no formato AAAA-MM-DD. */
-function hojeLocal(): string {
-  const d = new Date();
-  const dois = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}`;
-}
 
 @Injectable()
 export class DashboardService {

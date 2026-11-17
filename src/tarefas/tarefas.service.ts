@@ -8,6 +8,7 @@ import { SELECT_MEMBRO } from 'src/membros/membros.service';
 import { idsComNome } from 'src/database/busca';
 import { desligarApontamentos } from 'src/apontamentos/desligar';
 import { anexarTrilhas, type Ancestral } from './trilha';
+import { hojeLocal, paraData } from 'src/calendario/capacidade.logica';
 
 // RF-32: um só formato de tarefa nas 4 rotas. Usuário só com SELECT_MEMBRO: nunca `senha`.
 export const SELECT_TAREFA = {
@@ -178,11 +179,25 @@ export class TarefasService {
     return formatarTarefa(tarefa)
   }
 
+  //ids + todos os descendentes (até 20 níveis, como a trilha)
+  private async comDescendentes(ids: number[]): Promise<number[]> {
+    const todos = new Set(ids);
+    let fronteira = ids;
+    for (let nivel = 0; nivel < 20 && fronteira.length > 0; nivel++) {
+      const filhas = await this.prisma.tarefas.findMany({ where: { idTarefaPai: { in: fronteira } }, select: { id: true } });
+      fronteira = filhas.map((f) => f.id).filter((id) => !todos.has(id));
+      fronteira.forEach((id) => todos.add(id));
+    }
+    return [...todos];
+  }
+
   async findAll(query: QueryTarefaDto) {
     const { page, limit, idProjeto, idStatus, idUsuarioResponsavel, idUsuarioCriador, idLabel, idUsuarioEnvolvido, busca, idTarefaPai, raiz, foraDeSprint } = query
+    // RF-56: nome contém o texto; vazia equivale a sem busca
+    // RF-149 (SPEC-028): no backlog, buscar pela mãe acha as filhas (a mãe não aparece sozinha, RF-141)
+    const achadas = busca ? await idsComNome(this.prisma, 'Tarefas', busca) : null
     const where: Prisma.TarefasWhereInput = {
-      // RF-56: nome contém o texto; vazia equivale a sem busca
-      ...(busca && { id: { in: await idsComNome(this.prisma, 'Tarefas', busca) } }),
+      ...(achadas && { id: { in: foraDeSprint ? await this.comDescendentes(achadas) : achadas } }),
       idProjeto,
       idStatus,
       idUsuarioResponsavel,
@@ -286,7 +301,7 @@ export class TarefasService {
         const conclusao = await tx.statusTarefa.findFirst({ where: { isFinal: true }, orderBy: [{ ordem: 'asc' }, { id: 'asc' }] })
         if (conclusao && tarefa.idStatus === conclusao.id) {
           const abertos = { idTarefa: id, evolucao: { lt: 100 }, sprint: { status: { in: ['Planejamento', 'Ativa'] } } }
-          await tx.itensSprint.updateMany({ where: { ...abertos, dataEntregaReal: null }, data: { dataEntregaReal: new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z') } })
+          await tx.itensSprint.updateMany({ where: { ...abertos, dataEntregaReal: null }, data: { dataEntregaReal: paraData(hojeLocal()) } })
           await tx.itensSprint.updateMany({ where: abertos, data: { evolucao: 100 } })
         } else if (antes.status.isFinal && !tarefa.status.isFinal) {
           // RF-121 (c) (SPEC-028): sair de um status final (Concluído, Cancelado…) para um não final reabre os itens

@@ -2,6 +2,25 @@ import { ArgumentsHost, Catch, ExceptionFilter, HttpException } from "@nestjs/co
 import { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 
+//P2025 por modelo do Prisma
+const NAO_ENCONTRADO: Record<string, string> = {
+    Usuarios: 'Usuário não encontrado',
+    Projetos: 'Projeto não encontrado',
+    UsuariosProjetos: 'Membro do projeto não encontrado',
+    Tarefas: 'Tarefa não encontrada',
+    ComentariosTarefas: 'Comentário não encontrado',
+    Labels: 'Label não encontrada',
+    LabelsTarefas: 'Label da tarefa não encontrada',
+    StatusProjeto: 'Status de projeto não encontrado',
+    StatusTarefa: 'Status de tarefa não encontrado',
+    Jornadas: 'Jornada não encontrada',
+    Feriados: 'Feriado não encontrado',
+    Ausencias: 'Ausência não encontrada',
+    Sprints: 'Sprint não encontrada',
+    ItensSprint: 'Item da sprint não encontrado',
+    Apontamentos: 'Apontamento não encontrado',
+}
+
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
     catch(exception: unknown, host: ArgumentsHost){
@@ -35,7 +54,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         //PrismaClientKnownRequestError é uma classe do proprio prisma que contem os erros do banco
         else if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code ==='P2025'){
             status = 404;
-            message = 'Registro não encontrado'
+            //diz o quê não foi achado (ex.: "Tarefa não encontrada"); modelo desconhecido fica no texto genérico
+            message = NAO_ENCONTRADO[String(exception.meta?.modelName)] ?? 'Registro não encontrado'
         }
 
         //P2003 é violação de chave estrangeira

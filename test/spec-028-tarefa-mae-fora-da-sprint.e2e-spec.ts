@@ -1,7 +1,7 @@
 /**
  * SPEC-028: tarefa com sub-tarefas não entra na sprint; reabrir a tarefa reabre o item.
  *
- * CA cobertos: CA-01..CA-05 (entrego) e CA-R1 (não-regrido).
+ * CA cobertos: CA-01..CA-09, CA-12..CA-15 (entrego) e CA-R1 (não-regrido).
  *
  * Banco SQLite descartável, a partir das migrations. Dev com 8h todos os dias; sprint em 2027.
  */
@@ -186,5 +186,49 @@ describe('SPEC-028: tarefa mãe fora da sprint', () => {
     expect((await backlog()).map((x) => x.id)).toContain(t.id);
     expect((await http().post(`/sprints/${s.id}/itens`, { idTarefa: t.id, idUsuario: dev })).status).toBe(201);
     expect((await backlog()).map((x) => x.id)).not.toContain(t.id);
+  });
+
+  it('CA-12: tarefa concluída ou cancelada → 400 e nada é criado', async () => {
+    const s = await sprint();
+    const t = await tarefa('Pronta');
+    await http().patch(`/tarefas/${t.id}`, { idStatus: concluido });
+    const r = await http().post(`/sprints/${s.id}/itens`, { idTarefa: t.id, idUsuario: dev });
+    expect(r.status).toBe(400);
+    expect(r.body.message).toBe('Tarefa concluída ou cancelada não entra na sprint: reabra antes');
+    expect(await prisma.itensSprint.count({ where: { idSprint: s.id } })).toBe(0);
+  });
+
+  it('CA-13: entrega real com evolução abaixo de 100 → 400; em 100 grava', async () => {
+    const s = await sprint();
+    const t = await tarefa('A');
+    const item = (await http().post(`/sprints/${s.id}/itens`, { idTarefa: t.id, idUsuario: dev })).body.id as number;
+    const r = await http().patch(`/itens/${item}/acompanhamento`, { evolucao: 50, dataEntregaReal: '2027-03-05' });
+    expect(r.status).toBe(400);
+    expect(r.body.message).toBe('Entrega real só com evolução em 100%');
+    expect((await http().patch(`/itens/${item}/acompanhamento`, { evolucao: 100, dataEntregaReal: '2027-03-05' })).status).toBe(200);
+    expect(await itemDoCronograma(s.id, item)).toMatchObject({ evolucao: 100, dataEntregaReal: '2027-03-05' });
+  });
+
+  it('CA-14: no backlog, buscar pelo nome da mãe acha as filhas e netas', async () => {
+    const mae = await tarefa('Telhado');
+    const filha = await tarefa('Planejamento', mae.id);
+    const sub = await tarefa('Estrutura', mae.id);
+    const neta = await tarefa('Vigas', sub.id);
+    await tarefa('Outra coisa');
+    const r = await http().get('/tarefas?page=1&limit=100&foraDeSprint=true&busca=telhado');
+    expect((r.body.data as { id: number }[]).map((t) => t.id).sort((a, b) => a - b)).toEqual([filha.id, neta.id]);
+    // fora do backlog a busca continua só pelo nome
+    expect(((await http().get('/tarefas?page=1&limit=100&busca=telhado')).body.data as { id: number }[]).map((t) => t.id)).toEqual([mae.id]);
+  });
+
+  it('CA-15: o dia de apontamentos traz o status da sprint e a trilha do item', async () => {
+    const s = await sprint();
+    const mae = await tarefa('Telhado');
+    const filha = await tarefa('Planejamento', mae.id);
+    const item = (await http().post(`/sprints/${s.id}/itens`, { idTarefa: filha.id, idUsuario: dev })).body.id as number;
+    expect((await http().post('/apontamentos', { data: '2027-03-02', inicio: '08:00', fim: '09:00', idItemSprint: item, idUsuario: dev })).status).toBe(201);
+    const dia = (await http().get(`/apontamentos?data=2027-03-02&idUsuario=${dev}`)).body;
+    expect(dia.sprint).toMatchObject({ id: s.id, status: 'Planejamento' });
+    expect(dia.apontamentos[0].item).toMatchObject({ id: item, nome: 'Planejamento', trilha: ['Telhado'], projeto: { id: p1, nome: 'P1' } });
   });
 });

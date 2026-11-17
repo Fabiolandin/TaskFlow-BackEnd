@@ -199,10 +199,10 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
     expect(res.body.message).toBe(`Usuario ${INEXISTENTE} não encontrado`);
   });
 
-  it('CA-B5: BadRequestException do ValidationPipe (POST /labels {}) → 400 "Validation failed"', async () => {
+  it('CA-B5: BadRequestException do ValidationPipe (POST /labels {}) → 400 "Dados inválidos: <campos>"', async () => {
     const res = await post('/labels', {});
     esperaCorpo(res, 400);
-    expect(res.body.message).toBe('Validation failed');
+    expect(res.body.message).toBe('Dados inválidos: nome');
   });
 
   it('CA-B5 / CA-R7: login com senha errada → 401 "Credenciais inválidas" string', async () => {
@@ -235,10 +235,10 @@ describe('SPEC-011: referência inexistente não é "registro em uso"', () => {
     expect(projeto.body.message).toMatch(/^Projeto em uso: /);
   });
 
-  it('CA-R2: P2025 continua 404 "Registro não encontrado"', async () => {
+  it('CA-R2: P2025 continua 404, dizendo o que não foi achado', async () => {
     const res = await del(`/labels/${INEXISTENTE}`);
     esperaCorpo(res, 404);
-    expect(res.body.message).toBe('Registro não encontrado');
+    expect(res.body.message).toBe('Label não encontrada');
   });
 
   it('CA-R3: responsável não membro continua 400 com a mensagem da regra', async () => {

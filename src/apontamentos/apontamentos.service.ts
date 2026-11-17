@@ -11,7 +11,7 @@ import type { CreateApontamentoDto, UpdateApontamentoDto } from './dto/apontamen
 // SPEC-026: apontamento de horas (RF-128..RF-132)
 
 const INCLUIR = {
-  item: { select: { id: true, nome: true, tarefa: { select: { nome: true } }, sprint: { select: { id: true, nome: true, status: true } } } },
+  item: { select: { id: true, nome: true, tarefa: { select: { id: true, nome: true, idTarefaPai: true, projeto: { select: { id: true, nome: true } } } }, sprint: { select: { id: true, nome: true, status: true } } } },
 } as const satisfies Prisma.ApontamentosInclude;
 type ApontamentoComItem = Prisma.ApontamentosGetPayload<{ include: typeof INCLUIR }>;
 
@@ -19,7 +19,8 @@ const SO_AS_SUAS = 'Você só aponta as suas horas';
 const fechada = () => new HttpException('Sprint fechada', HttpStatus.CONFLICT);
 const SEM_SPRINT = 'A data não está em nenhuma sprint';
 
-const formatar = (a: ApontamentoComItem) => ({
+//trilha: nomes das mães, da raiz à mãe direta (só a leitura do dia preenche; RF-142)
+const formatar = (a: ApontamentoComItem, trilha?: Map<number, string[]>) => ({
   id: a.id,
   idUsuario: a.idUsuario,
   data: paraTexto(a.data),
@@ -27,7 +28,13 @@ const formatar = (a: ApontamentoComItem) => ({
   fim: formatarHora(a.fimMin),
   minutos: a.fimMin - a.inicioMin,
   idItemSprint: a.idItemSprint,
-  item: a.item ? { id: a.item.id, nome: a.item.tarefa?.nome ?? a.item.nome, sprint: { id: a.item.sprint.id, nome: a.item.sprint.nome } } : null,
+  item: a.item
+    ? {
+        id: a.item.id, nome: a.item.tarefa?.nome ?? a.item.nome, idTarefa: a.item.tarefa?.id ?? null,
+        trilha: (a.item.tarefa && trilha?.get(a.item.tarefa.id)) || [], projeto: a.item.tarefa?.projeto ?? null,
+        sprint: { id: a.item.sprint.id, nome: a.item.sprint.nome },
+      }
+    : null,
   observacao: a.observacao,
   foraDaSprint: a.foraDaSprint,
 });
@@ -100,11 +107,15 @@ export class ApontamentosService {
       this.prisma.apontamentos.findMany({ where: { idUsuario: dono, data: paraData(data) }, include: INCLUIR, orderBy: [{ inicioMin: 'asc' }, { id: 'asc' }] }),
       this.sprintDaData(data),
     ]);
+    const tarefas = lista.flatMap((a) => (a.item?.tarefa ? [{ ...a.item.tarefa, ancestrais: [] as Ancestral[] }] : []));
+    await anexarTrilhas(this.prisma, tarefas);
+    const trilha = new Map(tarefas.map((t) => [t.id, t.ancestrais.map((x) => x.nome)]));
     const ultimoFim = lista.reduce<number | null>((m, a) => (m === null || a.fimMin > m ? a.fimMin : m), null);
     return {
       data,
-      sprint: sprint ? { id: sprint.id, nome: sprint.nome } : null,
-      apontamentos: lista.map(formatar),
+      //status: o front esconde o "Converter em tarefa" em sprint fechada (RF-150)
+      sprint: sprint ? { id: sprint.id, nome: sprint.nome, status: sprint.status } : null,
+      apontamentos: lista.map((a) => formatar(a, trilha)),
       totalMinutos: lista.reduce((s, a) => s + a.fimMin - a.inicioMin, 0),
       sugestaoInicio: ultimoFim === null ? null : formatarHora(ultimoFim),
     };

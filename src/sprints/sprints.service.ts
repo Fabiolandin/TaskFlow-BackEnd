@@ -6,7 +6,7 @@ import { SELECT_TAREFA, diferencas, formatarTarefa } from 'src/tarefas/tarefas.s
 import { anexarTrilhas } from 'src/tarefas/trilha';
 import type { UsuarioAutenticado } from '../auth/usuario-atual.decorator';
 import { CalendarioService } from '../calendario/calendario.service';
-import { capacidadeDosDias, capacidadeTotal, paraData, paraTexto } from '../calendario/capacidade.logica';
+import { capacidadeDosDias, capacidadeTotal, hojeLocal, paraData, paraTexto } from '../calendario/capacidade.logica';
 import { calcularFila, type PosicaoNaFila } from './fila.logica';
 import { desligarApontamentos } from '../apontamentos/desligar';
 import { atrasoDoItem, consumoDoItem, diasUteisNoPeriodo, evolucaoPonderada, restantesDoItem, riscoDoItem, statusDoItem } from './acompanhamento.logica';
@@ -21,8 +21,7 @@ const UM_DIA = 86_400_000;
 const HORIZONTE = 366;
 
 const somarDias = (data: string, n: number) => paraTexto(new Date(paraData(data).getTime() + n * UM_DIA));
-//"hoje" do servidor, em UTC, como as datas puras (ponto 29 do tecnico.md)
-const hoje = () => new Date().toISOString().slice(0, 10);
+const hoje = hojeLocal;
 const maior = (a: string, b: string) => (a > b ? a : b);
 
 //"Sprint 3" → "Sprint 4"; nome fora do padrão ganha " (continuação)" (RF-118)
@@ -203,9 +202,11 @@ export class SprintsService {
     }
     await this.exigirDev(this.prisma, dto.idUsuario);
     if (deTarefa) {
-      const alvo = await this.prisma.tarefas.findUniqueOrThrow({ where: { id: dto.idTarefa }, select: { _count: { select: { subtarefas: true } } } });
+      const alvo = await this.prisma.tarefas.findUniqueOrThrow({ where: { id: dto.idTarefa }, select: { status: { select: { isFinal: true } }, _count: { select: { subtarefas: true } } } });
       //RF-140 (SPEC-028): só folhas entram na sprint; a tarefa mãe é para organizar
       if (alvo._count.subtarefas > 0) throw new BadRequestException('Tarefa com sub-tarefas não entra na sprint: planeje as sub-tarefas');
+      //RF-146: o backlog já esconde as concluídas (RF-116); a API também recusa
+      if (alvo.status.isFinal) throw new BadRequestException('Tarefa concluída ou cancelada não entra na sprint: reabra antes');
       const ja = await this.situacaoNaSprint(this.prisma, idSprint, dto.idTarefa!);
       if (ja?.tipo === 'mesma') throw new HttpException('A tarefa já está nesta sprint', HttpStatus.CONFLICT);
       //a mãe entrou quando ainda não tinha filhas (RF-140): a filha não entra junto
@@ -436,6 +437,8 @@ export class SprintsService {
     if (item.sprint.status === 'Fechada') throw fechada();
     if (!eu.isAdmin && item.idUsuario !== eu.id) throw new ForbiddenException('Só o dev do item ou o administrador atualizam o acompanhamento');
     const evolucao = dto.evolucao ?? item.evolucao;
+    //RF-147: entrega real só existe com o item entregue (100%)
+    if (dto.dataEntregaReal && evolucao < 100) throw new BadRequestException('Entrega real só com evolução em 100%');
     let entrega = item.dataEntregaReal;
     if (evolucao < 100) entrega = null;
     else if (!entrega) entrega = paraData(hoje());
