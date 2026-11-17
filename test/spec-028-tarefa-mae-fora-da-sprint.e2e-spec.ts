@@ -135,6 +135,21 @@ describe('SPEC-028: tarefa mãe fora da sprint', () => {
     expect(await itemDoCronograma(s.id, ib)).toMatchObject({ evolucao: 100 });
   });
 
+  it('CA-06: itens apontáveis trazem a trilha das mães e o projeto', async () => {
+    const s = await sprint();
+    const paredes = await tarefa('Paredes');
+    const telhado = await tarefa('Telhado');
+    const p = await tarefa('Planejamento', paredes.id);
+    const t = await tarefa('Planejamento', telhado.id);
+    for (const x of [p, t]) await http().post(`/sprints/${s.id}/itens`, { idTarefa: x.id, idUsuario: dev });
+    await http().post(`/sprints/${s.id}/itens`, { idUsuario: dev, nome: 'Reuniões', minutosAvulsos: 60 });
+    const r = await http().get(`/apontamentos/itens?data=2027-03-02&idUsuario=${dev}`);
+    expect(r.status).toBe(200);
+    const itens = r.body as { nome: string; trilha: string[]; projeto: { id: number; nome: string } | null }[];
+    expect(itens.map((i) => [...i.trilha, i.nome].join(' › '))).toEqual(['Paredes › Planejamento', 'Telhado › Planejamento', 'Reuniões']);
+    expect(itens.map((i) => i.projeto?.nome ?? null)).toEqual(['P1', 'P1', null]);
+  });
+
   it('CA-R1: tarefa sem filhos segue entrando e aparecendo no backlog', async () => {
     const s = await sprint();
     const t = await tarefa('Solta');

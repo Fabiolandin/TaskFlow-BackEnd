@@ -4,6 +4,7 @@ import { PrismaService } from 'src/database/prisma.service';
 import type { UsuarioAutenticado } from '../auth/usuario-atual.decorator';
 import { paraData, paraTexto } from '../calendario/capacidade.logica';
 import { SprintsService } from '../sprints/sprints.service';
+import { anexarTrilhas, type Ancestral } from '../tarefas/trilha';
 import { formatarHora, lerHora, sobrepoe } from './horario.logica';
 import type { CreateApontamentoDto, UpdateApontamentoDto } from './dto/apontamento.dto';
 
@@ -121,10 +122,22 @@ export class ApontamentosService {
     }
     const itens = await this.prisma.itensSprint.findMany({
       where,
-      include: { tarefa: { select: { id: true, nome: true } }, sprint: { select: { id: true, nome: true, dataInicio: true } } },
+      include: {
+        tarefa: { select: { id: true, nome: true, idTarefaPai: true, projeto: { select: { id: true, nome: true } } } },
+        sprint: { select: { id: true, nome: true, dataInicio: true } },
+      },
       orderBy: [{ sprint: { dataInicio: 'asc' } }, { ordem: 'asc' }],
     });
-    return itens.map((i) => ({ id: i.id, nome: i.tarefa?.nome ?? i.nome, idTarefa: i.tarefa?.id ?? null, sprint: { id: i.sprint.id, nome: i.sprint.nome } }));
+    //trilha e projeto: tarefas com o mesmo nome (ex.: "Planejamento" em vários temas) ficam distinguíveis
+    const tarefas = itens.flatMap((i) => (i.tarefa ? [{ ...i.tarefa, ancestrais: [] as Ancestral[] }] : []));
+    await anexarTrilhas(this.prisma, tarefas);
+    const trilhaDe = new Map(tarefas.map((t) => [t.id, t.ancestrais.map((a) => a.nome)]));
+    return itens.map((i) => ({
+      id: i.id, nome: i.tarefa?.nome ?? i.nome, idTarefa: i.tarefa?.id ?? null,
+      trilha: i.tarefa ? trilhaDe.get(i.tarefa.id)! : [],
+      projeto: i.tarefa?.projeto ?? null,
+      sprint: { id: i.sprint.id, nome: i.sprint.nome },
+    }));
   }
 
   // ---------- escrita ----------
