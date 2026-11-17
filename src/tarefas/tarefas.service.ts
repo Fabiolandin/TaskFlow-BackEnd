@@ -196,6 +196,8 @@ export class TarefasService {
       ...(foraDeSprint && {
         status: { isFinal: false },
         itensSprint: { none: { sprint: { status: { in: ['Planejamento', 'Ativa'] } } } },
+        // RF-141 (SPEC-028): tarefa com sub-tarefas não é planejável; aparece pela trilha das filhas
+        subtarefas: { none: {} },
       }),
     }
     const [total, tarefas] = await Promise.all([
@@ -286,6 +288,13 @@ export class TarefasService {
           const abertos = { idTarefa: id, evolucao: { lt: 100 }, sprint: { status: { in: ['Planejamento', 'Ativa'] } } }
           await tx.itensSprint.updateMany({ where: { ...abertos, dataEntregaReal: null }, data: { dataEntregaReal: new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z') } })
           await tx.itensSprint.updateMany({ where: abertos, data: { evolucao: 100 } })
+        } else if (conclusao && antes.idStatus === conclusao.id && !tarefa.status.isFinal) {
+          // RF-121 (alterado na SPEC-028): sair da conclusão para um status não final reabre os itens dela nas
+          // sprints abertas (a evolução anterior não fica guardada: volta a 0 e a entrega real é limpa)
+          await tx.itensSprint.updateMany({
+            where: { idTarefa: id, evolucao: { gte: 100 }, sprint: { status: { in: ['Planejamento', 'Ativa'] } } },
+            data: { evolucao: 0, dataEntregaReal: null },
+          })
         }
       }
 

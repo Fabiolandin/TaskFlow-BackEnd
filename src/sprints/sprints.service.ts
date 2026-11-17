@@ -203,7 +203,9 @@ export class SprintsService {
     }
     await this.exigirDev(this.prisma, dto.idUsuario);
     if (deTarefa) {
-      await this.prisma.tarefas.findUniqueOrThrow({ where: { id: dto.idTarefa }, select: { id: true } });
+      const alvo = await this.prisma.tarefas.findUniqueOrThrow({ where: { id: dto.idTarefa }, select: { _count: { select: { subtarefas: true } } } });
+      //RF-140 (SPEC-028): só folhas entram na sprint; a tarefa mãe é para organizar
+      if (alvo._count.subtarefas > 0) throw new BadRequestException('Tarefa com sub-tarefas não entra na sprint: planeje as sub-tarefas');
       const repetida = await this.prisma.itensSprint.count({ where: { idSprint, idTarefa: dto.idTarefa } });
       if (repetida > 0) throw new HttpException('A tarefa já está nesta sprint', HttpStatus.CONFLICT);
     }

@@ -255,6 +255,8 @@ describe('SPEC-006: tarefas, as duas pontas', () => {
         'minutosBuffer',
         'issueExterna',
         'solicitante',
+        // trilha da tarefa mãe (backlog, fila e cronograma); vazia fora dessas rotas
+        'ancestrais',
       ].sort(),
     );
     expect(Object.keys(t.status).sort()).toEqual(['cor', 'id', 'isFinal', 'nome']);

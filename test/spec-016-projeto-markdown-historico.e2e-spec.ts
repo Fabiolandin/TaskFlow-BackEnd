@@ -481,6 +481,8 @@ describe('SPEC-016: projeto, histórico e busca (API)', () => {
         'idTarefaPai', 'subtarefas', 'tarefaPai',
         // SPEC-024 alterou o RF-32: campos de refinamento (RF-108)
         'minutosEstimados', 'minutosBuffer', 'issueExterna', 'solicitante',
+        // trilha da tarefa mãe (backlog, fila e cronograma); vazia fora dessas rotas
+        'ancestrais',
       ].sort();
       const lista = await get('/tarefas');
       const um = await get(`/tarefas/${t.id}`);
